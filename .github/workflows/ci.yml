@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Toolchain version
+        run: moon version --all
+
+      - name: Fetch dependencies
+        run: moon update
+
+      # Community test ROMs without an explicit redistribution license are
+      # downloaded here and never committed.
+      - name: Fetch test ROMs
+        run: sh scripts/fetch-test-roms.sh
+
+      - name: Check
+        run: |
+          moon check --deny-warn
+          moon fmt --check
+
+      - name: Test (js)
+        run: moon test --target js
+
+      - name: Test (wasm-gc)
+        run: moon test --target wasm-gc
+
+      - name: Test (native)
+        run: moon test --target native
+
+      - name: nestest comparison
+        run: moon run src/cmd/nestest --target native
+
+      - name: Test ROM results
+        run: moon run src/cmd/testroms --target native --release | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Build web front end
+        run: sh scripts/build-web.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: web/

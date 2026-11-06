@@ -8,3 +8,4 @@ node_modules/
 # Test ROMs whose redistribution terms are unclear are downloaded, never committed.
 test-roms/downloaded/
 web/moon_nes.js
+.claude/
