@@ -16,6 +16,12 @@ let known_failures : Map[String, String] = {
 fn load(path : String) -> @nes.Nes? raise {
   let full = rom_dir + path
   if !@fs.path_exists(full) {
+    // Skipping is only fine when nothing was downloaded at all; a missing
+    // file in a populated directory means the suite list has a bad path.
+    if !path.has_prefix("downloaded/") ||
+      @fs.path_exists(rom_dir + "downloaded") {
+      fail("test ROM \{full} not found")
+    }
     println("skip: \{full} missing, run scripts/fetch-test-roms.sh")
     return None
   }
