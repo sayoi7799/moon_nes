@@ -10,9 +10,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pinned to the toolchain the project is developed and tested with.
       - name: Install MoonBit
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s '0.10.16+b1a0e846e'
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       - name: Toolchain version
@@ -26,10 +27,11 @@ jobs:
       - name: Fetch test ROMs
         run: sh scripts/fetch-test-roms.sh
 
-      - name: Check
-        run: |
-          moon check --deny-warn
-          moon fmt --check
+      - name: Check (warnings are errors)
+        run: moon check --deny-warn
+
+      - name: Check formatting
+        run: moon fmt --check
 
       - name: Test (js)
         run: moon test --target js
