@@ -218,16 +218,30 @@ pub fn[B : CpuBus] Cpu::step(self : Cpu[B]) -> Unit {
 ///|
 /// OAM DMA: one halt cycle, one alignment cycle on odd cycles, then 256
 /// read/write pairs into $2004. 513 or 514 cycles total.
+///
+/// DMA cycles still see the interrupt lines but are not an instruction's
+/// polling point, so an IRQ raised during DMA is taken only after the
+/// instruction that follows it.
 fn[B : CpuBus] Cpu::oam_dma(self : Cpu[B], page : Int32) -> Unit {
-  self.rd(self.pc) |> ignore
+  self.dma_read(self.pc) |> ignore
   if self.cycles % 2L == 1L {
-    self.rd(self.pc) |> ignore
+    self.dma_read(self.pc) |> ignore
   }
   let base = page << 8
   for i in 0..<256 {
-    let v = self.rd(base | i)
-    self.wr(0x2004, v)
+    let v = self.dma_read(base | i)
+    self.bus.write(0x2004, v)
+    self.cycles += 1
+    self.poll(false)
   }
+}
+
+///|
+fn[B : CpuBus] Cpu::dma_read(self : Cpu[B], addr : Int32) -> Int32 {
+  let v = self.bus.read(addr)
+  self.cycles += 1
+  self.poll(false)
+  v
 }
 
 ///|

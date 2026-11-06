@@ -324,6 +324,12 @@ pub fn Ppu::write_register(self : Ppu, reg : Int32, value : Int32) -> Unit {
 }
 
 ///|
+/// Reads PPU memory ($0000-$3FFF) without side effects.
+pub fn Ppu::peek_memory(self : Ppu, addr : Int32) -> Int32 {
+  self.mem_read(addr)
+}
+
+///|
 /// Reads a register without side effects (for debugging and tracing).
 pub fn Ppu::peek_register(self : Ppu, reg : Int32) -> Int32 {
   match reg & 7 {

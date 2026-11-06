@@ -121,3 +121,18 @@ pub fn Nes::frame_hash(self : Nes) -> UInt32 {
   }
   h
 }
+
+///|
+/// The first nametable as 30 lines of 32 characters, treating tile numbers
+/// $20-$7E as ASCII. Test ROMs that print text use this layout.
+pub fn Nes::screen_text(self : Nes) -> String {
+  let s = StringBuilder()
+  for row in 0..<30 {
+    for col in 0..<32 {
+      let t = self.bus.ppu.peek_memory(0x2000 + row * 32 + col)
+      s.write_char(if t >= 0x20 && t < 0x7F { t.unsafe_to_char() } else { ' ' })
+    }
+    s.write_char('\n')
+  }
+  s.to_string()
+}

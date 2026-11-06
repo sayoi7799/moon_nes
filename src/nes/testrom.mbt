@@ -84,3 +84,20 @@ pub fn Nes::run_legacy_test(
   }
   TimedOut("result code = \{self.peek(result_addr)}")
 }
+
+///|
+/// Tests that only print their verdict: waits for "Passed", "Failed" or
+/// "Error" to appear in the first nametable.
+pub fn Nes::run_screen_test(self : Nes, max_frames : Int32) -> TestOutcome {
+  for _ in 0..<max_frames {
+    self.run_frame()
+    let text = self.screen_text()
+    if text.contains("Passed") {
+      return Passed(text)
+    }
+    if text.contains("Failed") || text.contains("Error") {
+      return Failed(1, text)
+    }
+  }
+  TimedOut(self.screen_text())
+}

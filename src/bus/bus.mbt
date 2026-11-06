@@ -3,6 +3,7 @@
 //
 //   $0000-$1FFF  2 KiB internal RAM, mirrored every $800
 //   $2000-$3FFF  PPU registers, mirrored every 8 bytes
+//   $4000-$4017  APU timing registers ($4015 status, $4017 frame counter)
 //   $4014        OAM DMA
 //   $4016/$4017  controllers
 //   $4020-$FFFF  cartridge (mapper)
@@ -50,6 +51,7 @@ fn Controller::read_bit(self : Controller) -> Int32 {
 pub struct Bus {
   ram : FixedArray[Int32]
   ppu : @ppu.Ppu
+  apu : @apu.Apu
   mapper : &@mapper.Mapper
   pad1 : Controller
   pad2 : Controller
@@ -65,6 +67,7 @@ pub fn Bus::new(mapper : &@mapper.Mapper) -> Bus {
   {
     ram: FixedArray::make(0x800, 0),
     ppu: @ppu.Ppu::new(mapper),
+    apu: @apu.Apu::new(),
     mapper,
     pad1: Controller::new(),
     pad2: Controller::new(),
@@ -82,6 +85,7 @@ pub fn Bus::new(mapper : &@mapper.Mapper) -> Bus {
 fn Bus::before_access(self : Bus) -> Unit {
   self.ppu.step()
   self.ppu.step()
+  self.apu.step()
   self.cycles += 1L
 }
 
@@ -101,8 +105,10 @@ fn Bus::access_read(self : Bus, addr : Int32) -> Int32 {
     (self.open_bus & 0xE0) | self.pad1.read_bit()
   } else if addr == 0x4017 {
     (self.open_bus & 0xE0) | self.pad2.read_bit()
+  } else if addr == 0x4015 {
+    self.apu.read_status() | (self.open_bus & 0x20)
   } else if addr < 0x4020 {
-    // APU registers are not emulated; they read as open bus.
+    // The other APU registers are write-only.
     self.open_bus
   } else {
     let v = self.mapper.cpu_read(addr)
@@ -118,7 +124,10 @@ fn Bus::access_read(self : Bus, addr : Int32) -> Int32 {
 pub impl @cpu.CpuBus for Bus with fn read(self, addr) {
   self.before_access()
   let v = self.access_read(addr)
-  self.open_bus = v
+  // $4015 is inside the CPU, so reading it leaves the external bus alone.
+  if addr != 0x4015 {
+    self.open_bus = v
+  }
   self.after_access()
   v
 }
@@ -142,6 +151,8 @@ fn Bus::access_write(self : Bus, addr : Int32, value : Int32) -> Unit {
   } else if addr == 0x4016 {
     self.pad1.write_strobe(value)
     self.pad2.write_strobe(value)
+  } else if addr < 0x4018 {
+    self.apu.write(addr, value)
   } else if addr >= 0x4020 {
     self.mapper.cpu_write(addr, value, self.cycles)
   }
@@ -153,6 +164,8 @@ pub impl @cpu.CpuBus for Bus with fn peek(self, addr) {
     self.ram[addr & 0x7FF]
   } else if addr < 0x4000 {
     self.ppu.peek_register(addr)
+  } else if addr == 0x4015 {
+    self.apu.peek_status()
   } else if addr < 0x4020 {
     0xFF
   } else {
@@ -171,8 +184,8 @@ pub impl @cpu.CpuBus for Bus with fn nmi_line(self) {
 }
 
 ///|
-pub impl @cpu.CpuBus for Bus with fn irq_line(_) {
-  false
+pub impl @cpu.CpuBus for Bus with fn irq_line(self) {
+  self.apu.irq_line()
 }
 
 ///|

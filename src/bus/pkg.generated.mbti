@@ -2,6 +2,7 @@
 package "sayoi7799/moon_nes/bus"
 
 import {
+  "sayoi7799/moon_nes/apu",
   "sayoi7799/moon_nes/cpu",
   "sayoi7799/moon_nes/mapper",
   "sayoi7799/moon_nes/ppu",
@@ -15,6 +16,7 @@ import {
 pub struct Bus {
   ram : FixedArray[Int32]
   ppu : @ppu.Ppu
+  apu : @apu.Apu
   mapper : &@mapper.Mapper
   pad1 : Controller
   pad2 : Controller

@@ -7,6 +7,8 @@ pub(all) enum Protocol {
   /// Result code in zero page ($F8 in the 2005.10 tests, $F0 in the
   /// 2005.09 ones), CPU parked in `JMP *`.
   Legacy(Int32)
+  /// Verdict printed on screen only.
+  Screen
 }
 
 ///|
@@ -53,7 +55,7 @@ pub let test_suite : Array[SuiteRom] = [
   rom("instr_misc/rom_singles/02-branch_wrap.nes", "CPU"),
   rom("instr_misc/rom_singles/03-dummy_reads.nes", "CPU"),
   rom("instr_misc/rom_singles/04-dummy_reads_apu.nes", "CPU"),
-  rom("cpu_dummy_reads/cpu_dummy_reads.nes", "CPU"),
+  rom("cpu_dummy_reads/cpu_dummy_reads.nes", "CPU", protocol=Screen),
   rom("cpu_interrupts_v2/rom_singles/1-cli_latency.nes", "CPU"),
   rom("cpu_interrupts_v2/rom_singles/2-nmi_and_brk.nes", "CPU"),
   rom("cpu_interrupts_v2/rom_singles/3-nmi_and_irq.nes", "CPU"),
@@ -155,5 +157,6 @@ pub fn Nes::run_suite_rom(self : Nes, rom : SuiteRom) -> TestOutcome {
   match rom.protocol {
     Blargg => self.run_blargg_test(rom.frames)
     Legacy(addr) => self.run_legacy_test(rom.frames, result_addr=addr)
+    Screen => self.run_screen_test(rom.frames)
   }
 }

@@ -9,14 +9,6 @@ let rom_dir = "test-roms/downloaded/"
 /// one of these starts passing, so the list (and the README table) stays
 /// accurate.
 let known_failures : Map[String, String] = {
-  "instr_timing/rom_singles/1-instr_timing.nes": "needs APU length counter",
-  "instr_timing/rom_singles/2-branch_timing.nes": "needs APU length counter",
-  "instr_misc/rom_singles/04-dummy_reads_apu.nes": "needs APU registers",
-  "cpu_dummy_reads/cpu_dummy_reads.nes": "result beep waits on APU length counter",
-  "cpu_interrupts_v2/rom_singles/1-cli_latency.nes": "needs APU frame IRQ",
-  "cpu_interrupts_v2/rom_singles/3-nmi_and_irq.nes": "needs APU frame IRQ",
-  "cpu_interrupts_v2/rom_singles/4-irq_and_dma.nes": "needs APU frame IRQ",
-  "cpu_interrupts_v2/rom_singles/5-branch_delays_irq.nes": "needs APU frame IRQ",
   "blargg_ppu_tests_2005.09.15b/vbl_clear_time.nes": "NMI latency margin of the 2005 test",
 }
 

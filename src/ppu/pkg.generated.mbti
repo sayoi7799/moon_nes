@@ -25,6 +25,7 @@ pub struct Ppu {
 pub fn Ppu::frame_done(Self) -> Bool
 pub fn Ppu::new(&@mapper.Mapper) -> Self
 pub fn Ppu::nmi_line(Self) -> Bool
+pub fn Ppu::peek_memory(Self, Int32) -> Int32
 pub fn Ppu::peek_register(Self, Int32) -> Int32
 pub fn Ppu::read_register(Self, Int32) -> Int32
 pub fn Ppu::start_frame(Self) -> Unit
