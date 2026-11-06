@@ -164,9 +164,8 @@ pub impl @cpu.CpuBus for Bus with fn peek(self, addr) {
     self.ram[addr & 0x7FF]
   } else if addr < 0x4000 {
     self.ppu.peek_register(addr)
-  } else if addr == 0x4015 {
-    self.apu.peek_status()
   } else if addr < 0x4020 {
+    // I/O registers are not peekable; show $FF like nestest.log does.
     0xFF
   } else {
     let v = self.mapper.cpu_read(addr)

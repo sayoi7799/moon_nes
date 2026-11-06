@@ -5,4 +5,8 @@ import {
   "sayoi7799/moon_nes/ppu",
 }
 
+import {
+  "sayoi7799/moon_nes/cartridge",
+} for "test"
+
 warnings = "-implicit_impl_as_method"

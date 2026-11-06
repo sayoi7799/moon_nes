@@ -30,6 +30,8 @@ pub const SCREEN_WIDTH : Int32 = 256
 
 pub fn pixel_rgb(Int32) -> Int32
 
+pub fn run_nestest(Bytes, String, on_line? : (Int32, String, String) -> Unit) -> NestestReport raise @cartridge.RomError
+
 pub let test_suite : Array[SuiteRom]
 
 // Errors
@@ -55,7 +57,16 @@ pub fn Nes::run_suite_rom(Self, SuiteRom) -> TestOutcome
 pub fn Nes::screen_text(Self) -> String
 pub fn Nes::set_buttons(Self, Int32, Int32) -> Unit
 pub fn Nes::step(Self) -> Unit
+pub fn Nes::trace_line(Self) -> String
 pub fn Nes::write_rgba(Self, FixedArray[Byte]) -> Unit
+
+pub struct NestestReport {
+  matched : Int32
+  total : Int32
+  first_mismatch : (Int32, String, String)?
+  error_official : Int32
+  error_unofficial : Int32
+}
 
 pub(all) enum Protocol {
   Blargg
