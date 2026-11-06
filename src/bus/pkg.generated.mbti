@@ -1,0 +1,35 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "sayoi7799/moon_nes/bus"
+
+import {
+  "sayoi7799/moon_nes/cpu",
+  "sayoi7799/moon_nes/mapper",
+  "sayoi7799/moon_nes/ppu",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Bus {
+  ram : FixedArray[Int32]
+  ppu : @ppu.Ppu
+  mapper : &@mapper.Mapper
+  pad1 : Controller
+  pad2 : Controller
+  mut cycles : Int64
+  // private fields
+}
+pub fn Bus::new(&@mapper.Mapper) -> Self
+pub impl @cpu.CpuBus for Bus
+
+pub struct Controller {
+  // private fields
+}
+pub fn Controller::new() -> Self
+pub fn Controller::set_buttons(Self, Int32) -> Unit
+
+// Type aliases
+
+// Traits

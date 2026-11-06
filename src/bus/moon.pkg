@@ -1,0 +1,7 @@
+import {
+  "sayoi7799/moon_nes/cpu",
+  "sayoi7799/moon_nes/mapper",
+  "sayoi7799/moon_nes/ppu",
+}
+
+warnings = "-implicit_impl_as_method"

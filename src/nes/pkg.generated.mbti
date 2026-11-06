@@ -1,0 +1,78 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "sayoi7799/moon_nes/nes"
+
+import {
+  "sayoi7799/moon_nes/bus",
+  "sayoi7799/moon_nes/cartridge",
+  "sayoi7799/moon_nes/cpu",
+}
+
+// Values
+pub const BUTTON_A : Int32 = 0x01
+
+pub const BUTTON_B : Int32 = 0x02
+
+pub const BUTTON_DOWN : Int32 = 0x20
+
+pub const BUTTON_LEFT : Int32 = 0x40
+
+pub const BUTTON_RIGHT : Int32 = 0x80
+
+pub const BUTTON_SELECT : Int32 = 0x04
+
+pub const BUTTON_START : Int32 = 0x08
+
+pub const BUTTON_UP : Int32 = 0x10
+
+pub const SCREEN_HEIGHT : Int32 = 240
+
+pub const SCREEN_WIDTH : Int32 = 256
+
+pub fn pixel_rgb(Int32) -> Int32
+
+pub let test_suite : Array[SuiteRom]
+
+// Errors
+
+// Types and methods
+pub struct Nes {
+  cartridge : @cartridge.Cartridge
+  bus : @bus.Bus
+  cpu : @cpu.Cpu[@bus.Bus]
+}
+pub fn Nes::frame_buffer(Self) -> FixedArray[Int32]
+pub fn Nes::frame_count(Self) -> Int32
+pub fn Nes::frame_hash(Self) -> UInt32
+pub fn Nes::load_rom(Bytes) -> Self raise @cartridge.RomError
+pub fn Nes::peek(Self, Int32) -> Int32
+pub fn Nes::reset(Self) -> Unit
+pub fn Nes::run_blargg_test(Self, Int32) -> TestOutcome
+pub fn Nes::run_frame(Self) -> Unit
+pub fn Nes::run_legacy_test(Self, Int32, result_addr? : Int32) -> TestOutcome
+pub fn Nes::run_suite_rom(Self, SuiteRom) -> TestOutcome
+pub fn Nes::set_buttons(Self, Int32, Int32) -> Unit
+pub fn Nes::step(Self) -> Unit
+pub fn Nes::write_rgba(Self, FixedArray[Byte]) -> Unit
+
+pub(all) enum Protocol {
+  Blargg
+  Legacy(Int32)
+}
+
+pub struct SuiteRom {
+  path : String
+  area : String
+  protocol : Protocol
+  frames : Int32
+}
+
+pub(all) enum TestOutcome {
+  Passed(String)
+  Failed(Int32, String)
+  TimedOut(String)
+}
+pub fn TestOutcome::to_string(Self) -> String
+
+// Type aliases
+
+// Traits

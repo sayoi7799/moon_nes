@@ -198,13 +198,14 @@ fn[B] Cpu::apply_read(self : Cpu[B], op : ReadOp, v : Int32) -> Unit {
       self.x = t & 0xFF
       self.set_zn(self.x)
     }
-    // Unstable on real chips; these use the commonly observed constants.
+    // Unstable on real chips. ANE uses magic $EE; LXA uses $FF, which is what
+    // blargg's instr_test expects (A = X = operand).
     Ane => {
       self.a = (self.a | 0xEE) & self.x & v
       self.set_zn(self.a)
     }
     Lxa => {
-      self.a = (self.a | 0xEE) & v
+      self.a = (self.a | 0xFF) & v
       self.x = self.a
       self.set_zn(self.a)
     }

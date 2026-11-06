@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "sayoi7799/moon_nes/ppu"
+
+import {
+  "sayoi7799/moon_nes/mapper",
+}
+
+// Values
+pub const HEIGHT : Int32 = 240
+
+pub const WIDTH : Int32 = 256
+
+// Errors
+
+// Types and methods
+pub struct Ppu {
+  mapper : &@mapper.Mapper
+  frame : FixedArray[Int32]
+  oam : FixedArray[Int32]
+  mut scanline : Int32
+  mut dot : Int32
+  mut frame_count : Int32
+  // private fields
+}
+pub fn Ppu::frame_done(Self) -> Bool
+pub fn Ppu::new(&@mapper.Mapper) -> Self
+pub fn Ppu::nmi_line(Self) -> Bool
+pub fn Ppu::peek_register(Self, Int32) -> Int32
+pub fn Ppu::read_register(Self, Int32) -> Int32
+pub fn Ppu::start_frame(Self) -> Unit
+pub fn Ppu::step(Self) -> Unit
+pub fn Ppu::write_register(Self, Int32, Int32) -> Unit
+
+// Type aliases
+
+// Traits

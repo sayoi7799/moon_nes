@@ -1,0 +1,13 @@
+import {
+  "sayoi7799/moon_nes/bus",
+  "sayoi7799/moon_nes/cartridge",
+  "sayoi7799/moon_nes/cpu",
+  "sayoi7799/moon_nes/mapper",
+  "moonbitlang/core/math",
+}
+
+import {
+  "moonbitlang/x/fs",
+} for "test"
+
+warnings = "-implicit_impl_as_method"
