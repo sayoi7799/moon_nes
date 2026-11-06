@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "sayoi7799/moon_nes/cartridge"
+
+// Values
+pub fn parse(Bytes) -> Cartridge raise RomError
+
+// Errors
+pub(all) suberror RomError {
+  TooShort(Int32)
+  BadMagic
+  Truncated(section~ : String, expected~ : Int32, actual~ : Int32)
+  NoPrgRom
+  UnsupportedMapper(Int32)
+}
+pub fn RomError::message(Self) -> String
+
+// Types and methods
+pub struct Cartridge {
+  mapper_id : Int32
+  submapper : Int32
+  is_nes2 : Bool
+  prg_rom : FixedArray[Byte]
+  chr : FixedArray[Byte]
+  chr_is_ram : Bool
+  prg_ram_size : Int32
+  mirroring : Mirroring
+  has_battery : Bool
+  trainer : FixedArray[Byte]?
+}
+
+pub(all) enum Mirroring {
+  Horizontal
+  Vertical
+  SingleLow
+  SingleHigh
+  FourScreen
+}
+pub fn Mirroring::to_string(Self) -> String
+
+// Type aliases
+
+// Traits

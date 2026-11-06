@@ -1,0 +1,9 @@
+.DS_Store
+_build/
+target/
+.mooncakes/
+.moonagent/
+node_modules/
+
+# Test ROMs whose redistribution terms are unclear are downloaded, never committed.
+test-roms/downloaded/
