@@ -1,0 +1,90 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "sayoi7799/moon_nes/cpu"
+
+// Values
+pub const FLAG_B : Int32 = 0x10
+
+pub const FLAG_C : Int32 = 0x01
+
+pub const FLAG_D : Int32 = 0x08
+
+pub const FLAG_I : Int32 = 0x04
+
+pub const FLAG_N : Int32 = 0x80
+
+pub const FLAG_U : Int32 = 0x20
+
+pub const FLAG_V : Int32 = 0x40
+
+pub const FLAG_Z : Int32 = 0x02
+
+pub fn hex2(Int32) -> String
+
+pub fn hex4(Int32) -> String
+
+pub fn opcode_info(Int32) -> OpcodeInfo
+
+// Errors
+
+// Types and methods
+pub struct Cpu[B] {
+  bus : B
+  mut a : Int32
+  mut x : Int32
+  mut y : Int32
+  mut sp : Int32
+  mut pc : Int32
+  mut p : Int32
+  mut cycles : Int64
+  mut jammed : Bool
+  // private fields
+}
+pub fn[B : CpuBus] Cpu::disassemble(Self[B], Int32) -> String
+pub fn[B] Cpu::new(B) -> Self[B]
+pub fn[B : CpuBus] Cpu::reset(Self[B]) -> Unit
+pub fn[B] Cpu::set_pc(Self[B], Int32) -> Unit
+pub fn[B : CpuBus] Cpu::step(Self[B]) -> Unit
+pub fn[B : CpuBus] Cpu::trace_line(Self[B], (Int32, Int32)) -> String
+
+pub struct FlatBus {
+  mem : FixedArray[Int32]
+  mut dma_page : Int32
+}
+pub fn FlatBus::load(Self, Int32, ArrayView[Int32]) -> Unit
+pub fn FlatBus::new() -> Self
+pub impl CpuBus for FlatBus
+
+pub(all) enum Mode {
+  Imp
+  Acc
+  Imm
+  Zp
+  Zpx
+  Zpy
+  Abs
+  Abx
+  Aby
+  Ind
+  Izx
+  Izy
+  Rel
+}
+pub fn Mode::length(Self) -> Int32
+
+pub struct OpcodeInfo {
+  mnemonic : String
+  mode : Mode
+  official : Bool
+}
+
+// Type aliases
+
+// Traits
+pub(open) trait CpuBus {
+  fn read(Self, Int32) -> Int32
+  fn write(Self, Int32, Int32) -> Unit
+  fn peek(Self, Int32) -> Int32
+  fn nmi_line(Self) -> Bool
+  fn irq_line(Self) -> Bool
+  fn take_dma_request(Self) -> Int32
+}

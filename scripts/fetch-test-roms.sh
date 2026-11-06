@@ -1,0 +1,100 @@
+#!/bin/sh
+# Downloads community test ROMs into test-roms/downloaded/.
+#
+# These ROMs (blargg's tests, kevtris' nestest, ...) carry no explicit
+# redistribution license, so they are fetched at test time and never committed.
+# Source: https://github.com/christopherpow/nes-test-roms, pinned to one commit.
+set -eu
+
+COMMIT=95d8f621ae55cee0d09b91519a8989ae0e64753b
+BASE="https://raw.githubusercontent.com/christopherpow/nes-test-roms/$COMMIT"
+DEST="$(cd "$(dirname "$0")/.." && pwd)/test-roms/downloaded"
+
+FILES="
+other/nestest.nes
+other/nestest.log
+other/nestest.txt
+instr_test-v5/readme.txt
+instr_test-v5/rom_singles/01-basics.nes
+instr_test-v5/rom_singles/02-implied.nes
+instr_test-v5/rom_singles/03-immediate.nes
+instr_test-v5/rom_singles/04-zero_page.nes
+instr_test-v5/rom_singles/05-zp_xy.nes
+instr_test-v5/rom_singles/06-absolute.nes
+instr_test-v5/rom_singles/07-abs_xy.nes
+instr_test-v5/rom_singles/08-ind_x.nes
+instr_test-v5/rom_singles/09-ind_y.nes
+instr_test-v5/rom_singles/10-branches.nes
+instr_test-v5/rom_singles/11-stack.nes
+instr_test-v5/rom_singles/12-jmp_jsr.nes
+instr_test-v5/rom_singles/13-rts.nes
+instr_test-v5/rom_singles/14-rti.nes
+instr_test-v5/rom_singles/15-brk.nes
+instr_test-v5/rom_singles/16-special.nes
+instr_timing/readme.txt
+instr_timing/rom_singles/1-instr_timing.nes
+instr_timing/rom_singles/2-branch_timing.nes
+instr_misc/readme.txt
+instr_misc/rom_singles/01-abs_x_wrap.nes
+instr_misc/rom_singles/02-branch_wrap.nes
+instr_misc/rom_singles/03-dummy_reads.nes
+instr_misc/rom_singles/04-dummy_reads_apu.nes
+cpu_dummy_reads/cpu_dummy_reads.nes
+cpu_dummy_reads/source/readme.txt
+cpu_interrupts_v2/readme.txt
+cpu_interrupts_v2/rom_singles/1-cli_latency.nes
+cpu_interrupts_v2/rom_singles/2-nmi_and_brk.nes
+cpu_interrupts_v2/rom_singles/3-nmi_and_irq.nes
+cpu_interrupts_v2/rom_singles/4-irq_and_dma.nes
+cpu_interrupts_v2/rom_singles/5-branch_delays_irq.nes
+ppu_vbl_nmi/readme.txt
+ppu_vbl_nmi/rom_singles/01-vbl_basics.nes
+ppu_vbl_nmi/rom_singles/02-vbl_set_time.nes
+ppu_vbl_nmi/rom_singles/03-vbl_clear_time.nes
+ppu_vbl_nmi/rom_singles/04-nmi_control.nes
+ppu_vbl_nmi/rom_singles/05-nmi_timing.nes
+ppu_vbl_nmi/rom_singles/06-suppression.nes
+ppu_vbl_nmi/rom_singles/07-nmi_on_timing.nes
+ppu_vbl_nmi/rom_singles/08-nmi_off_timing.nes
+ppu_vbl_nmi/rom_singles/09-even_odd_frames.nes
+ppu_vbl_nmi/rom_singles/10-even_odd_timing.nes
+sprite_hit_tests_2005.10.05/readme.txt
+sprite_hit_tests_2005.10.05/01.basics.nes
+sprite_hit_tests_2005.10.05/02.alignment.nes
+sprite_hit_tests_2005.10.05/03.corners.nes
+sprite_hit_tests_2005.10.05/04.flip.nes
+sprite_hit_tests_2005.10.05/05.left_clip.nes
+sprite_hit_tests_2005.10.05/06.right_edge.nes
+sprite_hit_tests_2005.10.05/07.screen_bottom.nes
+sprite_hit_tests_2005.10.05/08.double_height.nes
+sprite_hit_tests_2005.10.05/09.timing_basics.nes
+sprite_hit_tests_2005.10.05/10.timing_order.nes
+sprite_hit_tests_2005.10.05/11.edge_timing.nes
+sprite_overflow_tests/readme.txt
+sprite_overflow_tests/1.Basics.nes
+sprite_overflow_tests/2.Details.nes
+sprite_overflow_tests/3.Timing.nes
+sprite_overflow_tests/4.Obscure.nes
+sprite_overflow_tests/5.Emulator.nes
+blargg_ppu_tests_2005.09.15b/readme.txt
+blargg_ppu_tests_2005.09.15b/palette_ram.nes
+blargg_ppu_tests_2005.09.15b/power_up_palette.nes
+blargg_ppu_tests_2005.09.15b/sprite_ram.nes
+blargg_ppu_tests_2005.09.15b/vbl_clear_time.nes
+blargg_ppu_tests_2005.09.15b/vram_access.nes
+oam_read/readme.txt
+oam_read/oam_read.nes
+ppu_open_bus/readme.txt
+ppu_open_bus/ppu_open_bus.nes
+"
+
+for f in $FILES; do
+  out="$DEST/$f"
+  if [ -s "$out" ]; then
+    continue
+  fi
+  mkdir -p "$(dirname "$out")"
+  echo "fetch $f"
+  curl -fsSL --retry 3 -o "$out" "$BASE/$f"
+done
+echo "test ROMs ready in $DEST"

@@ -15,3 +15,7 @@ description = "A platform-independent NES (Famicom) emulator core written in Moo
 source = "src"
 
 preferred_target = "js"
+
+import {
+  "moonbitlang/x@0.5.7",
+}
