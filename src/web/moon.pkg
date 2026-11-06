@@ -1,0 +1,8 @@
+import {
+  "sayoi7799/moon_nes/nes",
+  "sayoi7799/moon_nes/demo",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "js"

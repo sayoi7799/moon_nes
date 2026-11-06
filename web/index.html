@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>moon_nes</title>
+<style>
+  :root {
+    --bg: #14161a;
+    --panel: #1d2026;
+    --line: #2c3038;
+    --text: #e6e8eb;
+    --muted: #9aa1ab;
+    --accent: #f2c14e;
+    --error: #ff7a6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    justify-content: center;
+  }
+  main { width: min(100%, 820px); padding: 24px 16px 40px; }
+  header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: 0.02em; }
+  h1 span { color: var(--accent); }
+  header p { margin: 0; color: var(--muted); }
+  .screen {
+    position: relative;
+    background: #000;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    aspect-ratio: 256 / 240;
+    width: 100%;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  .drop-hint {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: var(--muted);
+    padding: 16px;
+    pointer-events: none;
+  }
+  .drop-hint[hidden] { display: none; }
+  .screen.dragging { outline: 2px dashed var(--accent); outline-offset: -8px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px; align-items: center; }
+  button, label.button {
+    font: inherit;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 14px;
+    cursor: pointer;
+  }
+  button:hover, label.button:hover { border-color: var(--accent); }
+  button:disabled { opacity: 0.5; cursor: default; border-color: var(--line); }
+  label.button.primary { background: var(--accent); color: #1a1a1a; border-color: var(--accent); }
+  input[type=file] { display: none; }
+  #fps { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #status { color: var(--muted); min-height: 1.5em; margin: 0 0 16px; }
+  #status.error { color: var(--error); }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; }
+  table { border-collapse: collapse; }
+  td { padding: 2px 16px 2px 0; }
+  kbd {
+    font: 13px ui-monospace, monospace;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  .note { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>moon<span>_nes</span></h1>
+    <p>a NES emulator written in MoonBit</p>
+  </header>
+
+  <div class="screen" id="screen">
+    <canvas id="canvas" width="256" height="240"></canvas>
+    <div class="drop-hint" id="hint">Open a .nes file, drop one here,<br>or run the built-in demo.</div>
+  </div>
+
+  <div class="controls">
+    <label class="button primary">Open ROM…<input type="file" id="file" accept=".nes"></label>
+    <button id="demo">Run demo</button>
+    <button id="reset" disabled>Reset</button>
+    <button id="pause" disabled>Pause</button>
+    <span id="fps"></span>
+  </div>
+  <p id="status">Loading emulator…</p>
+
+  <section>
+    <table>
+      <tr><td><kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>↓</kbd></td><td>D-pad</td></tr>
+      <tr><td><kbd>X</kbd> or <kbd>K</kbd></td><td>A</td></tr>
+      <tr><td><kbd>Z</kbd> or <kbd>J</kbd></td><td>B</td></tr>
+      <tr><td><kbd>Enter</kbd></td><td>Start</td></tr>
+      <tr><td><kbd>Shift</kbd></td><td>Select</td></tr>
+    </table>
+    <p class="note">Supports mappers 0 (NROM), 1 (MMC1), 2 (UxROM) and 3 (CNROM). No sound.
+      ROM files stay in your browser. Only load ROMs you have the right to use.</p>
+  </section>
+</main>
+
+<script type="module">
+  import "./moon_nes.js";
+
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const image = ctx.createImageData(256, 240);
+  const status = document.getElementById("status");
+  const hint = document.getElementById("hint");
+  const fpsLabel = document.getElementById("fps");
+  const resetButton = document.getElementById("reset");
+  const pauseButton = document.getElementById("pause");
+  const nes = globalThis.moonNes;
+
+  // NTSC NES frame rate.
+  const FRAME_MS = 1000 / 60.0988;
+  let running = false;
+  let paused = false;
+  let backlog = 0;
+  let last = 0;
+  let framesThisSecond = 0;
+  let secondStart = 0;
+
+  function setStatus(text, isError = false) {
+    status.textContent = text;
+    status.classList.toggle("error", isError);
+  }
+
+  function started(error) {
+    if (error) {
+      setStatus("Cannot load ROM: " + error, true);
+      return;
+    }
+    hint.hidden = true;
+    resetButton.disabled = false;
+    pauseButton.disabled = false;
+    paused = false;
+    pauseButton.textContent = "Pause";
+    setStatus(nes.describe());
+    if (!running) {
+      running = true;
+      last = secondStart = performance.now();
+      requestAnimationFrame(tick);
+    }
+  }
+
+  function tick(now) {
+    // Run as many emulated frames as real time asks for, but never try to
+    // catch up more than a few frames after the tab was in the background.
+    backlog = Math.min(backlog + (now - last), FRAME_MS * 4);
+    last = now;
+    let ran = 0;
+    while (!paused && backlog >= FRAME_MS) {
+      nes.frame(image.data);
+      backlog -= FRAME_MS;
+      ran++;
+    }
+    if (ran > 0) ctx.putImageData(image, 0, 0);
+    framesThisSecond += ran;
+    if (now - secondStart >= 1000) {
+      fpsLabel.textContent = paused ? "paused" : `${framesThisSecond} fps`;
+      framesThisSecond = 0;
+      secondStart = now;
+    }
+    requestAnimationFrame(tick);
+  }
+
+  async function loadFile(file) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    started(nes.load(bytes));
+    if (!status.classList.contains("error")) setStatus(`${file.name}: ${nes.describe()}`);
+  }
+
+  document.getElementById("file").addEventListener("change", (e) => {
+    if (e.target.files[0]) loadFile(e.target.files[0]);
+    e.target.value = "";
+  });
+  document.getElementById("demo").addEventListener("click", () => {
+    started(nes.demo());
+    if (!status.classList.contains("error")) setStatus("Built-in demo: " + nes.describe());
+  });
+  resetButton.addEventListener("click", () => nes.reset());
+  pauseButton.addEventListener("click", () => {
+    paused = !paused;
+    pauseButton.textContent = paused ? "Resume" : "Pause";
+  });
+
+  const screen = document.getElementById("screen");
+  screen.addEventListener("dragover", (e) => { e.preventDefault(); screen.classList.add("dragging"); });
+  screen.addEventListener("dragleave", () => screen.classList.remove("dragging"));
+  screen.addEventListener("drop", (e) => {
+    e.preventDefault();
+    screen.classList.remove("dragging");
+    if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.target instanceof HTMLInputElement) return;
+    if (nes.key(e.code, true)) e.preventDefault();
+  });
+  window.addEventListener("keyup", (e) => {
+    if (nes.key(e.code, false)) e.preventDefault();
+  });
+
+  setStatus("Ready. Open a ROM or run the demo.");
+</script>
+</body>
+</html>

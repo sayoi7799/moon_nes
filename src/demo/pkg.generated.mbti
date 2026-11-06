@@ -1,0 +1,32 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "sayoi7799/moon_nes/demo"
+
+// Values
+pub fn demo_rom() -> Bytes
+
+// Errors
+pub suberror AsmError {
+  UndefinedLabel(String)
+  BranchOutOfRange(String)
+}
+pub fn AsmError::message(Self) -> String
+
+// Types and methods
+pub struct Asm {
+  // private fields
+}
+pub fn Asm::address_of(Self, String) -> Int32 raise AsmError
+pub fn Asm::branch(Self, Int32, String) -> Unit
+pub fn Asm::bytes(Self, ArrayView[Int32]) -> Unit
+pub fn Asm::label(Self, String) -> Unit
+pub fn Asm::link(Self) -> Array[Int32] raise AsmError
+pub fn Asm::new(Int32) -> Self
+pub fn Asm::op(Self, Int32) -> Unit
+pub fn Asm::op16(Self, Int32, Int32) -> Unit
+pub fn Asm::op8(Self, Int32, Int32) -> Unit
+pub fn Asm::op_label(Self, Int32, String) -> Unit
+pub fn Asm::pc(Self) -> Int32
+
+// Type aliases
+
+// Traits
