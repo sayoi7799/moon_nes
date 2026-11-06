@@ -6,7 +6,7 @@
 
 NES 的硬件行为有完整的公开文档（[NESdev Wiki](https://www.nesdev.org/wiki/)），社区也有公认的测试 ROM，模拟得对不对可以客观验证。MoonBit 生态里此前没有 NES 模拟器，也没有 6502 CPU 实现；最接近的是 [sacckey/lunaboy](https://github.com/sacckey/lunaboy)（Game Boy），CPU 和整机结构都不同。
 
-本项目从零实现了 2A03 CPU、2C02 PPU 和四种常见卡带映射器，以周期为单位精确同步，并用 70 个社区测试 ROM 和 nestest 日志逐项验证。
+本项目从零实现了 2A03 CPU、2C02 PPU 和四种常见卡带映射器，以周期为单位精确同步，并用 nestest 日志和 69 个测试 ROM 逐项验证。
 
 ## 支持范围
 
