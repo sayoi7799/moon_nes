@@ -3,7 +3,7 @@
 /// Usage (from the repository root): moon run src/cmd/testroms [filter]
 /// where `filter` keeps only ROMs whose path contains it.
 fn main {
-  let dir = "test-roms/downloaded/"
+  let dir = "test-roms/"
   let args = @env.args()
   let filter = if args.length() > 1 { args[args.length() - 1] } else { "" }
   let mut passed = 0

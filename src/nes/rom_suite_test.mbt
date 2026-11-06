@@ -2,14 +2,14 @@
 // A ROM that has not been fetched is skipped with a message.
 
 ///|
-let rom_dir = "test-roms/downloaded/"
+let rom_dir = "test-roms/"
 
 ///|
 /// ROMs that are known not to pass yet, with the reason. The test fails if
 /// one of these starts passing, so the list (and the README table) stays
 /// accurate.
 let known_failures : Map[String, String] = {
-  "blargg_ppu_tests_2005.09.15b/vbl_clear_time.nes": "NMI latency margin of the 2005 test",
+  "downloaded/blargg_ppu_tests_2005.09.15b/vbl_clear_time.nes": "NMI latency margin of the 2005 test",
 }
 
 ///|
@@ -46,6 +46,11 @@ fn run_area(area : String) -> Unit raise {
 ///|
 test "CPU test ROMs (blargg instr_test, instr_misc, interrupts, ...)" {
   run_area("CPU")
+}
+
+///|
+test "mapper test ROMs (Holy Mapperel for NROM, MMC1, UxROM, CNROM)" {
+  run_area("Mapper")
 }
 
 ///|

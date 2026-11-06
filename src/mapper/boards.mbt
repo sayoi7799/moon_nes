@@ -170,6 +170,19 @@ fn Mmc1::new(cart : @cartridge.Cartridge) -> &Mapper {
 }
 
 ///|
+/// PRG RAM is disabled by bit 4 of the PRG register (MMC1B), and on SNROM
+/// (8 KiB CHR RAM, at most 256 KiB PRG) also by bit 4 of the CHR register.
+fn Mmc1::ram_enabled(self : Mmc1) -> Bool {
+  if (self.prg & 0x10) != 0 {
+    return false
+  }
+  let snrom = self.mem.chr_writable &&
+    self.mem.chr.length() == 0x2000 &&
+    self.mem.prg.length() <= 0x40000
+  !(snrom && (self.chr0 & 0x10) != 0)
+}
+
+///|
 /// SUROM and friends use CHR register bit 4 to select a 256 KiB PRG half.
 fn Mmc1::prg_outer(self : Mmc1) -> Int32 {
   if self.mem.prg.length() > 0x40000 {
@@ -182,7 +195,7 @@ fn Mmc1::prg_outer(self : Mmc1) -> Int32 {
 ///|
 impl Mapper for Mmc1 with fn cpu_read(self, addr) {
   if addr < 0x8000 {
-    return self.mem.ram_read(addr)
+    return if self.ram_enabled() { self.mem.ram_read(addr) } else { -1 }
   }
   let outer = self.prg_outer()
   let bank = self.prg & 0x0F
@@ -198,7 +211,9 @@ impl Mapper for Mmc1 with fn cpu_read(self, addr) {
 ///|
 impl Mapper for Mmc1 with fn cpu_write(self, addr, value, cycle) {
   if addr < 0x8000 {
-    self.mem.ram_write(addr, value)
+    if self.ram_enabled() {
+      self.mem.ram_write(addr, value)
+    }
     return
   }
   // The MMC1 ignores a write on the cycle right after another one, which is

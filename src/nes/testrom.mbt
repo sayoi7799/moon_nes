@@ -101,3 +101,35 @@ pub fn Nes::run_screen_test(self : Nes, max_frames : Int32) -> TestOutcome {
   }
   TimedOut(self.screen_text())
 }
+
+///|
+/// Holy Mapperel prints the detected mapper as three digits at the top left
+/// and a 4-digit detail code after ": " once its tests are done; 0000 means
+/// all bank, mirroring and RAM checks matched the detected board.
+pub fn Nes::run_mapperel_test(
+  self : Nes,
+  max_frames : Int32,
+  mapper : Int32,
+) -> TestOutcome {
+  let expected_mapper = "00" + mapper.to_string()
+  for _ in 0..<max_frames {
+    self.run_frame()
+    let text = self.screen_text()
+    guard text.find(": ") is Some(i) else { continue }
+    let code = text.view(start_offset=i + 2, end_offset=i + 6).to_owned()
+    if code.length() != 4 || !code.iter().all(c => c >= '0' && c <= '9') {
+      continue
+    }
+    let header = text
+      .split("\n")
+      .find_first(line => !line.trim().is_empty())
+      .map(line => line.trim().to_owned())
+      .unwrap_or("")
+    return if code == "0000" && header.has_prefix(expected_mapper) {
+      Passed(text)
+    } else {
+      Failed(1, "detail code \{code}, header: \{header}")
+    }
+  }
+  TimedOut(self.screen_text())
+}
