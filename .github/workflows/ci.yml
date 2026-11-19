@@ -13,7 +13,7 @@ jobs:
       # Pinned to the toolchain the project is developed and tested with.
       - name: Install MoonBit
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s '0.10.16+b1a0e846e'
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s '0.10.21+06da1ed44'
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       - name: Toolchain version

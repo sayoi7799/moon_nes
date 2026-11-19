@@ -81,8 +81,8 @@ pub fn opcode_info(opcode : Int32) -> OpcodeInfo {
   let entry = opcode_table[opcode & 0xFF]
   let official = !entry.has_prefix("*")
   let start = if official { 0 } else { 1 }
-  let mnemonic = entry.view(start_offset=start, end_offset=start + 3).to_owned()
-  let mode = match entry.view(start_offset=start + 4).to_owned() {
+  let mnemonic = entry.exact_view(start~, end=start + 3).to_owned()
+  let mode = match entry.exact_view(start=start + 4).to_owned() {
     "imp" => Imp
     "acc" => Acc
     "imm" => Imm
