@@ -1,0 +1,10 @@
+import {
+  "sayoi7799/moon_nes/nes",
+  "sayoi7799/moon_nes/demo",
+}
+
+import {
+  "moonbitlang/x/fs",
+} for "wbtest"
+
+pkgtype(kind: "executable")

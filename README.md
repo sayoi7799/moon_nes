@@ -25,7 +25,7 @@ APU 说明：MVP 不做声音。但帧计数器是这些卡带上唯一的 IRQ �
 
 ## 测试结果
 
-`moon test` 在 js、wasm-gc、native 三个后端都通过（57 个测试）。下面这张表由 `moon run src/cmd/testroms` 生成，**69 个 ROM 中 68 个通过**。
+`moon test` 在 js、wasm-gc、native 三个后端都通过（59 个测试）。下面这张表由 `moon run src/cmd/testroms` 生成，**69 个 ROM 中 68 个通过**。
 
 ### CPU
 
@@ -76,9 +76,58 @@ APU 说明：MVP 不做声音。但帧计数器是这些卡带上唯一的 IRQ �
 
 测试 ROM 结果会和 `src/nes/rom_suite_test.mbt` 里的「已知未通过」清单对比：清单外的 ROM 没过算回归；清单内的 ROM 变成通过也会报错，提醒更新清单和这张表。
 
+## 安装与使用
+
+在自己的 MoonBit 项目里添加依赖：
+
+```bash
+moon add sayoi7799/moon_nes
+```
+
+在要用模拟器的包的 `moon.pkg` 里导入整机包；示例用了内置的演示 ROM，所以也导入 `demo`：
+
+```
+import {
+  "sayoi7799/moon_nes/nes",
+  "sayoi7799/moon_nes/demo",
+}
+```
+
+最小示例：加载 ROM、按住 Start 跑一帧、读取帧缓冲。
+
+```moonbit
+///|
+fn main {
+  // Any iNES file works here, for example bytes read from disk with
+  // moonbitlang/x/fs. The demo ROM is built into the library.
+  let rom = @demo.demo_rom()
+  let nes = @nes.Nes::load_rom(rom) catch {
+    err => {
+      println("cannot load ROM: \{err.message()}")
+      return
+    }
+  }
+  // Player 1 holds Start during the next frame.
+  nes.set_buttons(0, @nes.BUTTON_START)
+  nes.run_frame()
+  // 256x240 pixels, each an NES color index; pixel_rgb turns it into 0xRRGGBB.
+  let frame = nes.frame_buffer()
+  let rgb = @nes.pixel_rgb(frame[0])
+  println("\{frame.length()} pixels, first pixel RGB \{rgb}")
+}
+```
+
+这段代码就是仓库里的 [`src/examples/basic/main.mbt`](src/examples/basic/main.mbt)，有测试保证两者逐字一致。在本仓库里运行：
+
+```bash
+moon run src/examples/basic
+```
+
+加载自己的 ROM 文件时，把 `@demo.demo_rom()` 换成文件内容，例如用 `moonbitlang/x/fs` 的 `@fs.read_file_to_bytes(path)`。要显示画面，可以用 `write_rgba` 直接写出 256×240×4 的 RGBA 字节，`src/web` 就是这样把帧画到 canvas 上的。
+
 ## 如何运行
 
-需要 MoonBit 工具链（开发时使用 moon 0.1.20261016 / moonc v0.10.16）。
+需要 MoonBit 工具链（开发时使用 moon 0.1.20261117 / moonc v0.10.21，CI 固定为同一版本）。
 
 ```bash
 # 下载社区测试 ROM（不随仓库分发）
@@ -125,6 +174,7 @@ src/apu        APU 计时部分（帧计数器、长度计数器）
 src/bus        CPU 地址空间：RAM、PPU/APU 寄存器、手柄、DMA，实现 CpuBus
 src/nes        整机和对外 API、调色板、测试 ROM 判定
 src/demo       迷你 6502 汇编器 + 自制演示 ROM
+src/examples/basic  README 里的最小使用示例
 src/web        浏览器前端（只编译到 js）
 src/cmd/*      nestest、testroms、bench、screen 命令行工具
 web/           页面

@@ -70,6 +70,10 @@ jobs:
         run: moon test --target native
 
       # The remaining steps do not depend on the host OS, so they run once.
+      - name: Run the README example
+        if: runner.os == 'Linux'
+        run: moon run src/examples/basic
+
       - name: nestest comparison
         if: runner.os == 'Linux'
         run: moon run src/cmd/nestest --target native
