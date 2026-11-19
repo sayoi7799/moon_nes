@@ -116,7 +116,7 @@ pub fn Nes::run_mapperel_test(
     self.run_frame()
     let text = self.screen_text()
     guard text.find(": ") is Some(i) else { continue }
-    let code = text.view(start_offset=i + 2, end_offset=i + 6).to_owned()
+    let code = text.clamped_view(start=i + 2, end=i + 6).to_owned()
     if code.length() != 4 || !code.iter().all(c => c >= '0' && c <= '9') {
       continue
     }

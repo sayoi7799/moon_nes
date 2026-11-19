@@ -11,12 +11,12 @@ struct NestestBus {
 
 ///|
 impl @cpu.CpuBus for NestestBus with fn read(self, addr) {
-  self.ram.read(addr)
+  @cpu.CpuBus::read(self.ram, addr)
 }
 
 ///|
 impl @cpu.CpuBus for NestestBus with fn write(self, addr, value) {
-  self.ram.write(addr, value)
+  @cpu.CpuBus::write(self.ram, addr, value)
 }
 
 ///|
@@ -24,7 +24,7 @@ impl @cpu.CpuBus for NestestBus with fn peek(self, addr) {
   if addr >= 0x4000 && addr < 0x4020 {
     0xFF
   } else {
-    self.ram.peek(addr)
+    @cpu.CpuBus::peek(self.ram, addr)
   }
 }
 
@@ -80,6 +80,6 @@ test "nestest.log matches line by line" {
   }
   assert_eq(checked, 8991)
   // nestest leaves its error codes in $02 (official) and $03 (unofficial).
-  assert_eq(bus.peek(0x02), 0)
-  assert_eq(bus.peek(0x03), 0)
+  assert_eq(@cpu.CpuBus::peek(bus, 0x02), 0)
+  assert_eq(@cpu.CpuBus::peek(bus, 0x03), 0)
 }

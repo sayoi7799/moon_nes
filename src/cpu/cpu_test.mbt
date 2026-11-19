@@ -19,18 +19,18 @@ fn TestBus::new(program : Array[Int32]) -> TestBus {
 
 ///|
 impl @cpu.CpuBus for TestBus with fn read(self, addr) {
-  self.ram.read(addr)
+  @cpu.CpuBus::read(self.ram, addr)
 }
 
 ///|
 impl @cpu.CpuBus for TestBus with fn write(self, addr, value) {
   self.writes.push((addr, value))
-  self.ram.write(addr, value)
+  @cpu.CpuBus::write(self.ram, addr, value)
 }
 
 ///|
 impl @cpu.CpuBus for TestBus with fn peek(self, addr) {
-  self.ram.peek(addr)
+  @cpu.CpuBus::peek(self.ram, addr)
 }
 
 ///|
@@ -89,10 +89,10 @@ test "NMI is edge triggered and pushes B clear" {
   cpu.step() // NOP; the edge is seen during it
   cpu.step() // interrupt sequence
   assert_eq(cpu.pc, 0x9000)
-  assert_eq(cpu.bus.ram.peek(0x1FB) & 0x30, 0x20)
+  assert_eq(@cpu.CpuBus::peek(cpu.bus.ram, 0x1FB) & 0x30, 0x20)
   // Holding the line does not retrigger.
-  cpu.bus.ram.write(0x9000, 0xEA)
-  cpu.bus.ram.write(0x9001, 0xEA)
+  @cpu.CpuBus::write(cpu.bus.ram, 0x9000, 0xEA)
+  @cpu.CpuBus::write(cpu.bus.ram, 0x9001, 0xEA)
   cpu.step()
   cpu.step()
   assert_eq(cpu.pc, 0x9002)
@@ -127,10 +127,10 @@ test "BRK pushes B set and skips the padding byte" {
   let cpu = boot([0x00, 0xFF])
   cpu.step()
   assert_eq(cpu.pc, 0xA000)
-  assert_eq(cpu.bus.ram.peek(0x1FB) & 0x30, 0x30)
+  assert_eq(@cpu.CpuBus::peek(cpu.bus.ram, 0x1FB) & 0x30, 0x30)
   // Return address is BRK + 2.
-  assert_eq(cpu.bus.ram.peek(0x1FD), 0x80)
-  assert_eq(cpu.bus.ram.peek(0x1FC), 0x02)
+  assert_eq(@cpu.CpuBus::peek(cpu.bus.ram, 0x1FD), 0x80)
+  assert_eq(@cpu.CpuBus::peek(cpu.bus.ram, 0x1FC), 0x02)
 }
 
 ///|
@@ -144,7 +144,7 @@ test "NMI during BRK hijacks the vector" {
   assert_eq(cpu.cycles - before, 7L)
   assert_eq(cpu.pc, 0x9000)
   // B flag still set in the pushed status: it was a BRK.
-  assert_eq(cpu.bus.ram.peek(0x1FB) & 0x10, 0x10)
+  assert_eq(@cpu.CpuBus::peek(cpu.bus.ram, 0x1FB) & 0x10, 0x10)
 }
 
 ///|
@@ -152,7 +152,7 @@ test "OAM DMA takes 513 or 514 cycles and writes $2004" {
   // STA $4014 (A = 0)
   let cpu = boot([0x8D, 0x14, 0x40, 0x8D, 0x14, 0x40])
   for i in 0..<256 {
-    cpu.bus.ram.write(0x0200 + i, i)
+    @cpu.CpuBus::write(cpu.bus.ram, 0x0200 + i, i)
   }
   cpu.bus.writes.clear()
   cpu.bus.dma = 2

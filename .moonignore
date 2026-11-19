@@ -1,0 +1,19 @@
+# Files left out of the mooncakes.io package (moon package / moon publish).
+# With this file present, moon no longer reads .gitignore for packaging,
+# so its rules are repeated here.
+.DS_Store
+_build/
+target/
+.mooncakes/
+.moonagent/
+node_modules/
+.claude/
+
+# Only the library and its command-line tools are published. Test ROMs,
+# the browser page and the CI scripts stay in the repository.
+test-roms/
+web/
+scripts/
+
+# Local notes that are not part of the project.
+proposal.md

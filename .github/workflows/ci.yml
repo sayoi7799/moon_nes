@@ -4,17 +4,36 @@ on:
   push:
   pull_request:
 
+env:
+  # Pinned to the toolchain the project is developed and tested with.
+  MOONBIT_INSTALL_VERSION: 0.10.21+06da1ed44
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # Git Bash on Windows, so the sh scripts run unchanged everywhere.
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
-      # Pinned to the toolchain the project is developed and tested with.
-      - name: Install MoonBit
+      - name: Install MoonBit (Linux, macOS)
+        if: runner.os != 'Windows'
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s '0.10.16+b1a0e846e'
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Install MoonBit (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
+          "$HOME\.moon\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
       - name: Toolchain version
         run: moon version --all
@@ -33,6 +52,14 @@ jobs:
       - name: Check formatting
         run: moon fmt --check
 
+      - name: Build all targets
+        run: moon build --target all
+
+      - name: Check committed interfaces are up to date
+        run: |
+          moon info
+          git diff --exit-code
+
       - name: Test (js)
         run: moon test --target js
 
@@ -42,16 +69,25 @@ jobs:
       - name: Test (native)
         run: moon test --target native
 
+      # The remaining steps do not depend on the host OS, so they run once.
+      - name: Run the README example
+        if: runner.os == 'Linux'
+        run: moon run src/examples/basic
+
       - name: nestest comparison
+        if: runner.os == 'Linux'
         run: moon run src/cmd/nestest --target native
 
       - name: Test ROM results
+        if: runner.os == 'Linux'
         run: moon run src/cmd/testroms --target native --release | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Build web front end
+        if: runner.os == 'Linux'
         run: sh scripts/build-web.sh
 
       - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
         with:
           name: web
           path: web/
