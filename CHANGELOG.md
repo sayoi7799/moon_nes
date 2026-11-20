@@ -2,6 +2,34 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [未发布]
+
+### 新增
+
+- 声音。APU 的五个声道全部实现：
+  - 帧计数器在原有的半帧时钟之外，加上 1/4 帧时钟（驱动包络和三角波的线性计数器）。
+  - 两个方波：包络、扫频，周期过短或扫频溢出时静音。
+  - 三角波：线性计数器，停住时保持当前电平。
+  - 噪声：15 位 LFSR，有长、短两种模式。
+  - DMC：内存读取器、1 字节缓冲、IRQ、循环。
+- DMC DMA：取样本时 CPU 停 3–4 个周期（在 OAM DMA 中停 2 个），停顿期间重复 CPU 原本的读。`CpuBus` 新增两个带默认实现的方法，其他总线实现不受影响。
+- 混音用 NESdev Wiki 的精确非线性公式。输出按区间平均降到输出采样率，再经过 90 Hz 高通和 14 kHz 低通。三个后端产生的采样逐位一致。
+- 新 API：`Nes::set_sample_rate`、`samples_available`、`take_samples`；`Apu::reset`、`Apu::output`。
+- 上电和按复位键时 APU 的状态：写 `$00` 到 `$4015`，重写最后一次的 `$4017`。
+- 演示 ROM 加上四声道背景音乐，按住 A 播放 DMC 采样；画面不变。
+- 浏览器前端用 Web Audio（AudioWorklet）播放声音：动态速率控制把缓冲保持在约 50 ms，另有静音按钮。
+- 测试 ROM 套件新增 APU 区，共 30 个 ROM（`apu_test`、`apu_reset`、`blargg_apu_2005.07.30`、`dmc_dma_during_read4`），通过 27 个。新增判定方式 `ScreenCrc` 和 `ScreenCode`。
+- 声音回归测试：演示 ROM 300 帧采样的哈希。
+
+### 修复
+
+- 测试 ROM 的 blargg 判定在复位后会把 `$6000` 里残留的 `$81` 当成新的复位请求，导致测试被提前复位。
+- `scripts/fetch-test-roms.sh` 给 curl 加了超时，并先写入临时文件，下载完整后再改名；中断的下载不会再留下被当作完整文件的残缺 ROM。
+
+### 变化
+
+- 开着声音时 native 速度从约 1040 fps 降到约 870 fps；`set_sample_rate(0)` 可以关掉声音。
+
 ## [0.1.0] - 2026-11-19
 
 第一个版本。
@@ -38,4 +66,5 @@
 - 测试 ROM：69 个中 68 个通过。未通过的是 2005 年版本的 `vbl_clear_time`。
 - Holy Mapperel：8 个 ROM 全部报告 0000。
 
+[未发布]: https://github.com/sayoi7799/moon_nes/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/sayoi7799/moon_nes/releases/tag/v0.1.0

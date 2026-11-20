@@ -1,12 +1,12 @@
 # moon_nes
 
-用 MoonBit 编写的 NES（红白机）模拟器。核心与平台无关，可以编译到 js、wasm-gc、native 三个后端；附带一个浏览器前端和几个命令行工具。
+用 MoonBit 编写的 NES（红白机）模拟器，有画面也有声音。核心与平台无关，可以编译到 js、wasm-gc、native 三个后端；附带一个浏览器前端和几个命令行工具。
 
 ## 定位
 
 NES 的硬件行为有完整的公开文档（[NESdev Wiki](https://www.nesdev.org/wiki/)），社区也有公认的测试 ROM，模拟得对不对可以客观验证。MoonBit 生态里此前没有 NES 模拟器，也没有 6502 CPU 实现；最接近的是 [sacckey/lunaboy](https://github.com/sacckey/lunaboy)（Game Boy），CPU 和整机结构都不同。
 
-本项目从零实现了 2A03 CPU、2C02 PPU 和四种常见卡带映射器，以周期为单位精确同步，并用 nestest 日志和 69 个测试 ROM 逐项验证。
+本项目从零实现了 2A03 CPU（含 APU 的五个声道）、2C02 PPU 和四种常见卡带映射器，以周期为单位精确同步，并用 nestest 日志和 99 个测试 ROM 逐项验证。
 
 ## 支持范围
 
@@ -16,16 +16,17 @@ NES 的硬件行为有完整的公开文档（[NESdev Wiki](https://www.nesdev.o
 | CPU | 2A03（6502，无十进制模式）：151 条官方指令和常见非官方指令（LAX、SAX、DCP、ISB、SLO、RLA、SRE、RRA、ANC、ALR、ARR、AXS、LAS、SHA/SHX/SHY/TAS、各类 NOP、JAM）；每个周期一次总线访问，包括 dummy read/write；NMI 边沿检测、IRQ 电平触发、在倒数第二个周期采样中断、BRK/IRQ 被 NMI 劫持、同页跳转分支少采样一次 |
 | PPU | 逐点推进（262 行 × 341 点）；背景取数流水线和 16 位移位寄存器；loopy v/t/x/w 滚动；精灵求值（含溢出标志的斜向扫描 bug 和置位时刻）；精灵 0 碰撞、优先级、左 8 像素裁剪、8×16 精灵；VBlank/NMI 时序及 `$2002` 读取抑制；奇数帧跳点；`$2007` 读缓冲；调色板镜像；开路总线衰减 |
 | 映射器 | 0 NROM、1 MMC1（SxROM/SNROM/SUROM，5 位串行移位寄存器，忽略相邻周期的连续写，MMC1B 的 PRG RAM 禁用）、2 UxROM、3 CNROM |
-| 其他 | 标准手柄（`$4016/$4017`）、OAM DMA（513/514 周期）、APU **计时部分**：帧计数器、帧 IRQ、四个长度计数器（不发声，见下文） |
-| API | `Nes::load_rom`、`run_frame`、`frame_buffer`（256×240）、`write_rgba`、`set_buttons`、`reset`、`frame_hash` |
+| APU | 帧计数器（4/5 步模式，1/4 帧和半帧时钟、帧 IRQ、`$4017` 写入的 3/4 周期延迟）；两个方波（包络、扫频、方波 1 反码/方波 2 补码取负、周期 < 8 或目标 > $7FF 静音）；三角波（线性计数器，停住时保持电平）；噪声（15 位 LFSR、长/短模式）；DMC（内存读取器、1 字节缓冲、IRQ、循环）；上电和复位时 `$4015`/`$4017` 的状态 |
+| DMC DMA | 取样本字节时让 CPU 停 3–4 个周期（halt、dummy、可选的对齐、get），在 OAM DMA 中只多占 2 个周期；停顿期间重复 CPU 原本的读，因此 `$2007` 会被多读，而连续读 `$4016/$4017` 只移一位 |
+| 声音输出 | 非线性混音（NESdev Wiki 的精确公式，预先算成表）；每个 CPU 周期的输出按区间平均降到输出采样率（默认 48 kHz），再经过 90 Hz 高通和 14 kHz 低通；只用加减乘除，三个后端的采样逐位一致 |
+| 其他 | 标准手柄（`$4016/$4017`）、OAM DMA（513/514 周期） |
+| API | `Nes::load_rom`、`run_frame`、`frame_buffer`（256×240）、`write_rgba`、`set_buttons`、`reset`、`frame_hash`、`set_sample_rate`、`take_samples` |
 
-APU 说明：MVP 不做声音。但帧计数器是这些卡带上唯一的 IRQ 源，而且很多 CPU 测试 ROM 用 `$4015` 的长度计数器状态来计时，所以实现了 APU 中与计时相关的部分（`src/apu`），不生成任何波形。
-
-不支持：声音、MMC3 和其他映射器、存档和即时存档、32 KiB WRAM 分页的 SXROM/SOROM、PAL 机型。
+不支持：MMC3 和其他映射器、存档和即时存档、32 KiB WRAM 分页的 SXROM/SOROM、PAL 机型、扩展音源。三角波周期小于 2 时会产生超声波，这里让它停住，和多数模拟器一样。
 
 ## 测试结果
 
-`moon test` 在 js、wasm-gc、native 三个后端都通过（59 个测试）。下面这张表由 `moon run src/cmd/testroms` 生成，**69 个 ROM 中 68 个通过**。
+`moon test` 在 js、wasm-gc、native 三个后端都通过（83 个测试）。下面这张表由 `moon run src/cmd/testroms` 生成，**99 个 ROM 中 94 个通过**。
 
 ### CPU
 
@@ -52,6 +53,28 @@ APU 说明：MVP 不做声音。但帧计数器是这些卡带上唯一的 IRQ �
 
 `vbl_clear_time` 是 2005 年的旧测试，只给 NMI 延迟留了约 4 个周期的余量，对上电时 CPU 与 PPU 的相位很敏感。测同一件事的新版测试 `ppu_vbl_nmi/03-vbl_clear_time` 和 `05-nmi_timing` 都已通过。
 
+### APU
+
+| 测试 ROM | 测什么 | 判定方式 | 结果 |
+|---|---|---|---|
+| apu_test 1–6 | 长度计数器、长度表、帧 IRQ 标志、时钟抖动、长度时钟时刻、IRQ 标志时刻 | $6000 | ✅ 6/6 |
+| apu_test 7-dmc_basics、8-dmc_rates | DMC 的启动、停止、IRQ、循环、1 字节缓冲；16 种速率 | $6000 | ✅ 2/2 |
+| apu_reset 6 个 | 上电和复位时 `$4015`、`$4017`、IRQ 标志、长度计数器的状态，`$4017` 的 9–12 周期延迟 | $6000，测试中途要求按复位键 | ✅ 6/6 |
+| blargg_apu_2005.07.30 01–08 | 帧计数器和长度计数器的旧版时序测试 | 屏幕上的 `$XX` 结果码，`$01` 为通过 | ✅ 8/8 |
+| blargg_apu_2005.07.30 09–11 | 复位后第四步的时刻；在长度时钟的同一周期改 halt 或重新装载 | 同上 | ❌ code 4、3、4 |
+| dmc_dma_during_read4 dma_2007_write、dma_4016_read、read_write_2007 | DMC DMA 落在 `$2007` 写、`$4016` 读、读写交替时的副作用 | 屏幕 Passed | ✅ 3/3 |
+| dmc_dma_during_read4 dma_2007_read | DMC DMA 落在 `$2007` 读上，多读 2–3 次 | 屏幕 CRC 属于源码列出的实机结果 | ✅ |
+| dmc_dma_during_read4 double_2007_read | 连续两个周期读 `$2007` | 同上 | ❌ CRC 不在列表中 |
+
+未通过的原因：
+- 2005 年测试的 09–11 认为长度时钟比现在早 1 个周期。测同样内容的新版测试（`apu_test` 5、6 和 `apu_reset/4017_timing`）全部通过，把时钟提前 1 个周期反而会让它们失败，所以保持现状。
+- `double_2007_read` 与 DMC 无关：实机上连续两个周期读 `$2007` 时，第二次读有时会被忽略，这里两次都让 VRAM 地址前进了。
+
+没有加入套件的 APU 相关测试：
+- `dmc_tests` 的 4 个 ROM 和 `sprdma_and_dmc_dma`：没有说明文档，也不输出通过或失败（`sprdma_and_dmc_dma` 只显示数值表），无法自动判定。
+- `apu_mixer` 的 4 个 ROM：要靠耳朵判断两次哔声之间是否接近无声。用本模拟器的采样输出测量：三角波的残余不到哔声音量的 2%，噪声按设计渐强渐弱；方波和 DMC 两项的残余明显，说明方波与 DMC 的相对时序或音量还有偏差。
+- PAL 版的 APU 测试：不支持 PAL。
+
 ### 映射器
 
 使用 [Holy Mapperel](https://github.com/pinobatch/holy-mapperel) v0.02（zlib 许可，ROM 随仓库提交）。它会自动识别映射器，检查每个 PRG/CHR bank、镜像方式和 PRG RAM，最后打印 4 位详细码，`0000` 表示全部正确。测试从名称表里读出映射器号和详细码来判定。
@@ -66,13 +89,14 @@ APU 说明：MVP 不做声音。但帧计数器是这些卡带上唯一的 IRQ �
 | M2_P128K_V、M2_P128K_CR8K_V | UxROM | ✅ 0000 ×2 |
 | M3_P32K_C32K_H | CNROM | ✅ 0000 |
 
-此外还有一个自制演示 ROM（见下文），在测试里模拟手柄输入，检查精灵坐标和画面。
+此外还有一个自制演示 ROM（见下文），在测试里模拟手柄输入，检查精灵坐标、画面和声音。
 
 ### 其他测试
 
 - **画面回归**：6 个 ROM（4 个 Holy Mapperel、sprite hit、instr_test）运行固定帧数后，帧缓冲的 FNV-1a 哈希写在快照里；三个后端算出的哈希完全一致（`src/nes/frame_hash_test.mbt`、`src/demo/demo_test.mbt`）。
+- **声音回归**：演示 ROM 按住 A 运行 300 帧，把全部采样量化成 16 位后做 FNV-1a 哈希，写在快照里；三个后端完全一致（`src/demo/demo_test.mbt`）。另有测试检查演示确实有声音、A 键会启动 DMC。
 - **边界情况**：空文件、不足 16 字节、签名错误、PRG/CHR/trainer 截断、PRG 大小为 0、不支持的映射器（含 NES 2.0 的 256 号以上）都返回带说明的 `RomError`（`src/cartridge/cartridge_test.mbt`、`src/nes/nes_test.mbt`）。
-- **单元测试**：CPU 中断与 DMA 周期、映射器 bank 切换、MMC1 串行写、APU 帧 IRQ 与长度计数器、总线镜像、手柄移位顺序等。
+- **单元测试**：CPU 中断与 DMA 周期、映射器 bank 切换、MMC1 串行写、APU 帧 IRQ 与长度计数器、包络、扫频（两个方波的取负差异和静音条件）、占空比、三角波序列、噪声 LFSR 周期（32767 和 93）、DMC 装载延迟和 IRQ、降采样和滤波、总线镜像、手柄移位顺序等。
 
 测试 ROM 结果会和 `src/nes/rom_suite_test.mbt` 里的「已知未通过」清单对比：清单外的 ROM 没过算回归；清单内的 ROM 变成通过也会报错，提醒更新清单和这张表。
 
@@ -125,6 +149,8 @@ moon run src/examples/basic
 
 加载自己的 ROM 文件时，把 `@demo.demo_rom()` 换成文件内容，例如用 `moonbitlang/x/fs` 的 `@fs.read_file_to_bytes(path)`。要显示画面，可以用 `write_rgba` 直接写出 256×240×4 的 RGBA 字节，`src/web` 就是这样把帧画到 canvas 上的。
 
+声音：`set_sample_rate(rate)` 设置输出采样率（默认 48000；设为 0 关掉声音，可省下约 15% 的时间），每帧之后用 `take_samples(buf)` 取走这一帧的单声道采样（约 800 个，范围大致在 -1.0 到 1.0）。核心只生成采样，播放交给调用方。
+
 ## 如何运行
 
 需要 MoonBit 工具链（开发时使用 moon 0.1.20261117 / moonc v0.10.21，CI 固定为同一版本）。
@@ -161,7 +187,9 @@ python -m http.server -d web 8000
 
 然后打开 <http://localhost:8000>，点 **Open ROM…** 或把 `.nes` 文件拖进画面，也可以点 **Run demo** 运行内置演示。按键：方向键 = 十字键，`X`/`K` = A，`Z`/`J` = B，`Enter` = Start，`Shift` = Select。ROM 文件只在浏览器本地读取，不会上传。
 
-性能（600 帧，Holy Mapperel MMC1 ROM，release 构建）：native 约 1040 fps，wasm-gc 约 640 fps，js 约 420 fps，都远超 NES 的 60 fps。
+声音用 Web Audio 播放。浏览器要求先有用户操作才能出声，所以在点 **Open ROM…** 或 **Run demo** 时启动；**Mute** 静音，暂停时声音也一起暂停。页面每帧把采样发给 AudioWorklet（`web/audio-worklet.js`）里的环形缓冲。为了音画同步又不丢帧，页面把缓冲保持在约 50 ms：缓冲偏少时让核心多产生最多 0.5% 的采样，偏多时少产生。画面始终是 60 fps，0.5% 的音高变化听不出来。缓冲真的空了（例如标签页切到后台）时输出保持最后一个电平，避免爆音。
+
+性能（600 帧，Holy Mapperel MMC1 ROM，release 构建，开着声音）：native 约 870 fps，wasm-gc 约 540 fps，js 约 350 fps，都远超 NES 的 60 fps。
 
 ## 结构
 
@@ -170,7 +198,7 @@ src/cartridge  iNES / NES 2.0 解析 → Cartridge
 src/mapper     Mapper trait + NROM / MMC1 / UxROM / CNROM
 src/cpu        CpuBus trait + 2A03 核心 + 反汇编和 nestest 格式跟踪
 src/ppu        逐点 PPU
-src/apu        APU 计时部分（帧计数器、长度计数器）
+src/apu        APU：帧计数器、五个声道、混音、降采样和滤波
 src/bus        CPU 地址空间：RAM、PPU/APU 寄存器、手柄、DMA，实现 CpuBus
 src/nes        整机和对外 API、调色板、测试 ROM 判定
 src/demo       迷你 6502 汇编器 + 自制演示 ROM
@@ -184,13 +212,15 @@ web/           页面
 
 **CPU 与 PPU 的同步**：CPU 的每次读写正好是一个周期。总线在访问前让 PPU 走 2 个点、APU 走一步，访问后再走 1 个点，所以每个 CPU 周期是 3 个 PPU 点。CPU 在每个周期结束时采样中断线。把访问放在第 2 和第 3 个点之间，是 `ppu_vbl_nmi` 各项时序测试共同要求的位置。
 
+**DMC DMA**：DMC 要取样本字节时，CPU 在下一个读周期前停下。停顿由 CPU 自己执行（`CpuBus` 的 `dmc_dma_pending` 和 `dmc_dma_cycle`，带默认实现），所以停顿周期也计入 CPU 周期数并照常看中断线，nestest 的周期列和中断时序都不受影响。DMC 没开时不会触发，现有的 CPU 和 PPU 时序测试结果不变。
+
 ## 演示 ROM
 
-`src/demo` 里有一个很小的 6502 汇编器（标签、分支偏移和地址回填），演示 ROM 在运行时由 MoonBit 代码汇编生成：屏幕上显示文字，十字键移动一个 16×16 的月亮精灵，按住 A 切换调色板。它完全由本仓库的代码生成，按本仓库的许可证分发，所以网页可以直接内置，不需要任何第三方 ROM。
+`src/demo` 里有一个很小的 6502 汇编器（标签、分支偏移和地址回填），演示 ROM 在运行时由 MoonBit 代码汇编生成：屏幕上显示文字，十字键移动一个 16×16 的月亮精灵，按住 A 切换调色板并播放一段 DMC 采样。背景音乐是民歌《Mary Had a Little Lamb》（公有领域）的四声道编曲：方波 1 旋律、方波 2 和声、三角波低音、噪声鼓点。它完全由本仓库的代码生成，按本仓库的许可证分发，所以网页可以直接内置，不需要任何第三方 ROM。
 
 ## 参考范围
 
-- 主要依据：NESdev Wiki 的硬件文档，包括 CPU、CPU interrupts、PPU rendering、PPU scrolling、PPU sprite evaluation、PPU registers、APU Frame Counter、APU Length Counter、iNES、NES 2.0、NROM、MMC1、UxROM、CNROM、NTSC video 等页面。
+- 主要依据：NESdev Wiki 的硬件文档，包括 CPU、CPU interrupts、PPU rendering、PPU scrolling、PPU sprite evaluation、PPU registers、APU Frame Counter、APU Length Counter、APU Envelope、APU Pulse（含 Sweep）、APU Triangle、APU Noise、APU DMC、APU Mixer、DMA、iNES、NES 2.0、NROM、MMC1、UxROM、CNROM、NTSC video 等页面。
 - 测试 ROM 的 readme 和源码注释：只用来了解每个测试的判定方式和期望输出。
 - 没有参考任何其他模拟器的源代码，GPL 项目的代码一律没有看。调色板由 NESdev Wiki 记载的 NTSC 信号电平自行计算生成。
 
