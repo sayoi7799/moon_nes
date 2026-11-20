@@ -55,9 +55,12 @@ pub fn Nes::run_mapperel_test(Self, Int32, Int32) -> TestOutcome
 pub fn Nes::run_screen_crc_test(Self, Int32, Array[String]) -> TestOutcome
 pub fn Nes::run_screen_test(Self, Int32) -> TestOutcome
 pub fn Nes::run_suite_rom(Self, SuiteRom) -> TestOutcome
+pub fn Nes::samples_available(Self) -> Int32
 pub fn Nes::screen_text(Self) -> String
 pub fn Nes::set_buttons(Self, Int32, Int32) -> Unit
+pub fn Nes::set_sample_rate(Self, Double) -> Unit
 pub fn Nes::step(Self) -> Unit
+pub fn Nes::take_samples(Self, FixedArray[Double]) -> Int32
 pub fn Nes::trace_line(Self) -> String
 pub fn Nes::write_rgba(Self, FixedArray[Byte]) -> Unit
 

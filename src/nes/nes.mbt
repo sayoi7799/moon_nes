@@ -112,6 +112,28 @@ pub fn Nes::frame_count(self : Nes) -> Int32 {
 }
 
 ///|
+/// Sets the audio output rate in Hz (default 48000), or 0 to turn sound
+/// generation off. Front ends may nudge the rate slightly every frame to
+/// keep their audio buffer at a steady level.
+pub fn Nes::set_sample_rate(self : Nes, rate : Double) -> Unit {
+  self.bus.apu.set_sample_rate(rate)
+}
+
+///|
+/// Number of audio samples produced and not yet taken, about 800 per frame
+/// at 48 kHz. The buffer keeps the latest second.
+pub fn Nes::samples_available(self : Nes) -> Int32 {
+  self.bus.apu.samples_available()
+}
+
+///|
+/// Moves up to `out.length()` mono samples (roughly -1.0..1.0, oldest
+/// first) into `out` and returns how many were written.
+pub fn Nes::take_samples(self : Nes, out : FixedArray[Double]) -> Int32 {
+  self.bus.apu.take_samples(out)
+}
+
+///|
 /// 32-bit FNV-1a hash of the framebuffer, for regression tests.
 pub fn Nes::frame_hash(self : Nes) -> UInt32 {
   let mut h : UInt32 = 0x811C9DC5

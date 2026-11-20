@@ -32,6 +32,7 @@ pub struct Apu {
   priv triangle : Triangle
   priv noise : Noise
   priv dmc : Dmc
+  priv resampler : Resampler
 }
 
 ///|
@@ -52,6 +53,7 @@ pub fn Apu::new() -> Apu {
     triangle: Triangle::new(),
     noise: Noise::new(),
     dmc: Dmc::new(),
+    resampler: Resampler::new(48000.0),
   }
 }
 
@@ -97,6 +99,9 @@ pub fn Apu::step(self : Apu) -> Unit {
   self.triangle.clock_timer(self.length[2])
   self.noise.clock_timer()
   self.step_frame_counter()
+  if self.resampler.rate > 0.0 {
+    self.resampler.add(self.output())
+  }
 }
 
 ///|
