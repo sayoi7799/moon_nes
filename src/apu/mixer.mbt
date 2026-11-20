@@ -29,5 +29,5 @@ pub fn Apu::output(self : Apu) -> Double {
   let p2 = self.pulse2.output(self.length[1])
   let t = self.triangle.output()
   let n = self.noise.output(self.length[3])
-  pulse_table[p1 + p2] + tnd_table[3 * t + 2 * n]
+  pulse_table[p1 + p2] + tnd_table[3 * t + 2 * n + self.dmc.level]
 }

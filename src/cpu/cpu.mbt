@@ -95,6 +95,7 @@ fn[B : CpuBus] Cpu::poll(self : Cpu[B], shift : Bool) -> Unit {
 ///|
 #inline
 fn[B : CpuBus] Cpu::rd(self : Cpu[B], addr : Int32) -> Int32 {
+  self.dmc_dma(addr, false)
   let v = self.bus.read(addr)
   self.cycles += 1
   self.poll(true)
@@ -229,6 +230,12 @@ fn[B : CpuBus] Cpu::oam_dma(self : Cpu[B], page : Int32) -> Unit {
   }
   let base = page << 8
   for i in 0..<256 {
+    if self.bus.dmc_dma_pending() {
+      // The DMC takes the get cycle; OAM DMA then needs one cycle to
+      // realign its read with the next get cycle.
+      self.dmc_dma(base | i, true)
+      self.dma_read(base | i) |> ignore
+    }
     let v = self.dma_read(base | i)
     self.bus.write(0x2004, v)
     self.cycles += 1
@@ -242,6 +249,30 @@ fn[B : CpuBus] Cpu::dma_read(self : Cpu[B], addr : Int32) -> Int32 {
   self.cycles += 1
   self.poll(false)
   v
+}
+
+///|
+/// DMC DMA: when a sample fetch is pending, the CPU is halted before the
+/// read of `addr` for 3 or 4 cycles (halt, dummy, optional alignment, get),
+/// or 1 or 2 when OAM DMA has already halted it. Like OAM DMA, these
+/// cycles see the interrupt lines without being a polling point.
+#inline
+fn[B : CpuBus] Cpu::dmc_dma(
+  self : Cpu[B],
+  addr : Int32,
+  in_oam_dma : Bool,
+) -> Unit {
+  if !self.bus.dmc_dma_pending() {
+    return
+  }
+  while true {
+    let done = self.bus.dmc_dma_cycle(addr, in_oam_dma)
+    self.cycles += 1
+    self.poll(false)
+    if done {
+      break
+    }
+  }
 }
 
 ///|

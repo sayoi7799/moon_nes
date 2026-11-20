@@ -31,6 +31,7 @@ pub struct Apu {
   priv pulse2 : Pulse
   priv triangle : Triangle
   priv noise : Noise
+  priv dmc : Dmc
 }
 
 ///|
@@ -50,13 +51,14 @@ pub fn Apu::new() -> Apu {
     pulse2: Pulse::new(false),
     triangle: Triangle::new(),
     noise: Noise::new(),
+    dmc: Dmc::new(),
   }
 }
 
 ///|
-/// IRQ output of the frame counter.
+/// IRQ output: the frame counter or the end of a DMC sample.
 pub fn Apu::irq_line(self : Apu) -> Bool {
-  self.frame_irq
+  self.frame_irq || self.dmc.irq
 }
 
 ///|
@@ -89,7 +91,9 @@ pub fn Apu::step(self : Apu) -> Unit {
   if self.cycle_parity {
     self.pulse1.clock_timer()
     self.pulse2.clock_timer()
+    self.dmc.clock_timer()
   }
+  self.dmc.step_load_delay(self.cycle_parity)
   self.triangle.clock_timer(self.length[2])
   self.noise.clock_timer()
   self.step_frame_counter()
@@ -144,8 +148,14 @@ pub fn Apu::read_status(self : Apu) -> Int32 {
       v = v | (1 << i)
     }
   }
+  if self.dmc.remaining > 0 {
+    v = v | 0x10
+  }
   if self.frame_irq {
     v = v | 0x40
+  }
+  if self.dmc.irq {
+    v = v | 0x80
   }
   self.frame_irq = false
   v
@@ -153,7 +163,9 @@ pub fn Apu::read_status(self : Apu) -> Int32 {
 
 ///|
 pub fn Apu::peek_status(self : Apu) -> Int32 {
-  let mut v = if self.frame_irq { 0x40 } else { 0 }
+  let mut v = (if self.frame_irq { 0x40 } else { 0 }) |
+    (if self.dmc.irq { 0x80 } else { 0 }) |
+    (if self.dmc.remaining > 0 { 0x10 } else { 0 })
   for i in 0..<4 {
     if self.length[i] > 0 {
       v = v | (1 << i)
@@ -170,6 +182,7 @@ pub fn Apu::write(self : Apu, addr : Int32, value : Int32) -> Unit {
     0x4004..<=0x4007 => self.pulse2.write(addr & 3, value)
     0x4008..<=0x400B => self.triangle.write(addr & 3, value)
     0x400C..<=0x400F => self.noise.write(addr & 3, value)
+    0x4010..<=0x4013 => self.dmc.write(addr & 3, value)
     _ => ()
   }
   match addr {
@@ -185,13 +198,15 @@ pub fn Apu::write(self : Apu, addr : Int32, value : Int32) -> Unit {
         self.length[ch] = length_table[value >> 3]
       }
     }
-    0x4015 =>
+    0x4015 => {
       for i in 0..<4 {
         self.enabled[i] = (value & (1 << i)) != 0
         if !self.enabled[i] {
           self.length[i] = 0
         }
       }
+      self.dmc.set_enabled((value & 0x10) != 0)
+    }
     0x4017 => {
       self.irq_inhibit = (value & 0x40) != 0
       if self.irq_inhibit {
@@ -204,4 +219,29 @@ pub fn Apu::write(self : Apu, addr : Int32, value : Int32) -> Unit {
     }
     _ => ()
   }
+}
+
+///|
+/// True when the DMC wants to halt the CPU and fetch a sample byte.
+pub fn Apu::dmc_dma_pending(self : Apu) -> Bool {
+  self.dmc.dma_pending()
+}
+
+///|
+/// Address of the next DMC sample byte.
+pub fn Apu::dmc_dma_address(self : Apu) -> Int32 {
+  self.dmc.address
+}
+
+///|
+/// Delivers the byte fetched from `dmc_dma_address`.
+pub fn Apu::dmc_dma_fill(self : Apu, value : Int32) -> Unit {
+  self.dmc.fill(value)
+}
+
+///|
+/// Whether the current CPU cycle is a get cycle, the half of an APU cycle
+/// on which DMA can read. Valid after `step` for the cycle.
+pub fn Apu::get_cycle(self : Apu) -> Bool {
+  self.cycle_parity
 }

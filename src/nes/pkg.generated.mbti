@@ -52,6 +52,7 @@ pub fn Nes::run_blargg_test(Self, Int32) -> TestOutcome
 pub fn Nes::run_frame(Self) -> Unit
 pub fn Nes::run_legacy_test(Self, Int32, result_addr? : Int32) -> TestOutcome
 pub fn Nes::run_mapperel_test(Self, Int32, Int32) -> TestOutcome
+pub fn Nes::run_screen_crc_test(Self, Int32, Array[String]) -> TestOutcome
 pub fn Nes::run_screen_test(Self, Int32) -> TestOutcome
 pub fn Nes::run_suite_rom(Self, SuiteRom) -> TestOutcome
 pub fn Nes::screen_text(Self) -> String
@@ -72,6 +73,7 @@ pub(all) enum Protocol {
   Blargg
   Legacy(Int32)
   Screen
+  ScreenCrc(Array[String])
   Mapperel(Int32)
 }
 

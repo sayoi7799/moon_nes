@@ -60,6 +60,8 @@ pub struct Bus {
   /// Last value on the CPU data bus, returned for unmapped reads.
   priv mut open_bus : Int32
   priv mut dma_page : Int32
+  /// CPU cycles the current DMC DMA has halted so far.
+  priv mut dmc_halted : Int32
 }
 
 ///|
@@ -74,6 +76,7 @@ pub fn Bus::new(mapper : &@mapper.Mapper) -> Bus {
     cycles: 0,
     open_bus: 0,
     dma_page: -1,
+    dmc_halted: 0,
   }
 }
 
@@ -192,4 +195,39 @@ pub impl @cpu.CpuBus for Bus with fn take_dma_request(self) {
   let p = self.dma_page
   self.dma_page = -1
   p
+}
+
+///|
+pub impl @cpu.CpuBus for Bus with fn dmc_dma_pending(self) {
+  self.apu.dmc_dma_pending()
+}
+
+///|
+/// One cycle of a DMC DMA (https://www.nesdev.org/wiki/DMA). The halt,
+/// dummy and alignment cycles repeat the CPU's pending read, so reads of
+/// $2007 have their side effect again. The joypads are clocked only once
+/// for back-to-back reads, so they see just the first repeat. The fetch
+/// happens on the first get cycle after the halt and dummy cycles.
+pub impl @cpu.CpuBus for Bus with fn dmc_dma_cycle(self, addr, in_oam_dma) {
+  self.before_access()
+  let ready = in_oam_dma || self.dmc_halted >= 2
+  let done = if ready && self.apu.get_cycle() {
+    let v = self.access_read(self.apu.dmc_dma_address())
+    self.open_bus = v
+    self.apu.dmc_dma_fill(v)
+    self.dmc_halted = 0
+    true
+  } else {
+    let repeat_pad = (addr == 0x4016 || addr == 0x4017) && self.dmc_halted > 0
+    if !repeat_pad {
+      let v = self.access_read(addr)
+      if addr != 0x4015 {
+        self.open_bus = v
+      }
+    }
+    self.dmc_halted += 1
+    false
+  }
+  self.after_access()
+  done
 }

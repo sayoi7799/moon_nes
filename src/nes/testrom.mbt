@@ -103,6 +103,31 @@ pub fn Nes::run_screen_test(self : Nes, max_frames : Int32) -> TestOutcome {
 }
 
 ///|
+/// Tests that print a CRC-32 of their output as 8 hex digits: passes when
+/// the CRC is one of `expected`, fails on any other CRC.
+pub fn Nes::run_screen_crc_test(
+  self : Nes,
+  max_frames : Int32,
+  expected : Array[String],
+) -> TestOutcome {
+  for _ in 0..<max_frames {
+    self.run_frame()
+    let text = self.screen_text()
+    for line in text.split("\n") {
+      let word = line.trim(char_set=" ").to_owned()
+      if word.length() == 8 && word.iter().all(c => c.is_ascii_hexdigit()) {
+        return if expected.contains(word) {
+          Passed(text)
+        } else {
+          Failed(1, text)
+        }
+      }
+    }
+  }
+  TimedOut(self.screen_text())
+}
+
+///|
 /// Holy Mapperel prints the detected mapper as three digits at the top left
 /// and a 4-digit detail code after ": " once its tests are done; 0000 means
 /// all bank, mirroring and RAM checks matched the detected board.

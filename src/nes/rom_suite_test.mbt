@@ -10,6 +10,7 @@ let rom_dir = "test-roms/"
 /// accurate.
 let known_failures : Map[String, String] = {
   "downloaded/blargg_ppu_tests_2005.09.15b/vbl_clear_time.nes": "NMI latency margin of the 2005 test",
+  "downloaded/dmc_dma_during_read4/double_2007_read.nes": "back-to-back $2007 reads both advance the VRAM address",
 }
 
 ///|
@@ -57,6 +58,11 @@ test "CPU test ROMs (blargg instr_test, instr_misc, interrupts, ...)" {
 ///|
 test "mapper test ROMs (Holy Mapperel for NROM, MMC1, UxROM, CNROM)" {
   run_area("Mapper")
+}
+
+///|
+test "APU test ROMs (apu_test, DMC DMA during reads)" {
+  run_area("APU")
 }
 
 ///|

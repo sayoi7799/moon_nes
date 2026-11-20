@@ -9,6 +9,9 @@ pub(all) enum Protocol {
   Legacy(Int32)
   /// Verdict printed on screen only.
   Screen
+  /// The test prints a CRC of its output on screen, and its source lists
+  /// the CRCs seen on hardware. Passes if one of them appears.
+  ScreenCrc(Array[String])
   /// Holy Mapperel: the 4-digit detail code on screen must be 0000 and the
   /// detected mapper must be the given one.
   Mapperel(Int32)
@@ -190,6 +193,33 @@ pub let test_suite : Array[SuiteRom] = [
   rom("holy-mapperel/M2_P128K_CR8K_V.nes", "Mapper", protocol=Mapperel(2)),
   rom("holy-mapperel/M3_P32K_C32K_H.nes", "Mapper", protocol=Mapperel(3)),
   rom("downloaded/ppu_open_bus/ppu_open_bus.nes", "PPU"),
+  rom("downloaded/apu_test/rom_singles/7-dmc_basics.nes", "APU"),
+  rom("downloaded/apu_test/rom_singles/8-dmc_rates.nes", "APU"),
+  rom(
+    "downloaded/dmc_dma_during_read4/dma_2007_read.nes",
+    "APU",
+    protocol=ScreenCrc(["159A7A8F", "5E3DF9C4"]),
+  ),
+  rom(
+    "downloaded/dmc_dma_during_read4/dma_2007_write.nes",
+    "APU",
+    protocol=Screen,
+  ),
+  rom(
+    "downloaded/dmc_dma_during_read4/dma_4016_read.nes",
+    "APU",
+    protocol=Screen,
+  ),
+  rom(
+    "downloaded/dmc_dma_during_read4/double_2007_read.nes",
+    "APU",
+    protocol=ScreenCrc(["85CFD627", "F018C287", "440EF923", "E52F41A5"]),
+  ),
+  rom(
+    "downloaded/dmc_dma_during_read4/read_write_2007.nes",
+    "APU",
+    protocol=Screen,
+  ),
 ]
 
 ///|
@@ -198,6 +228,7 @@ pub fn Nes::run_suite_rom(self : Nes, rom : SuiteRom) -> TestOutcome {
     Blargg => self.run_blargg_test(rom.frames)
     Legacy(addr) => self.run_legacy_test(rom.frames, result_addr=addr)
     Screen => self.run_screen_test(rom.frames)
+    ScreenCrc(crcs) => self.run_screen_crc_test(rom.frames, crcs)
     Mapperel(id) => self.run_mapperel_test(rom.frames, id)
   }
 }
