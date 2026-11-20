@@ -70,3 +70,71 @@ test "assembler resolves labels and rejects bad ones" {
   }
   assert_eq(r, "undefined label nowhere")
 }
+
+///|
+/// Runs `frames` frames and returns all samples, quantized to 16 bits so
+/// the hash does not depend on how a backend prints doubles.
+fn record(nes : @nes.Nes, frames : Int32) -> Array[Int32] {
+  let out = []
+  let buf = FixedArray::make(4096, 0.0)
+  for _ in 0..<frames {
+    nes.run_frame()
+    let n = nes.take_samples(buf)
+    for i in 0..<n {
+      let v = (buf[i] * 32767.0).round().to_int()
+      out.push(if v > 32767 { 32767 } else if v < -32768 { -32768 } else { v })
+    }
+  }
+  out
+}
+
+///|
+fn fnv1a(samples : Array[Int32]) -> UInt32 {
+  let mut h : UInt32 = 0x811C9DC5
+  for v in samples {
+    h = (h ^ (v & 0xFF).reinterpret_as_uint()) * 0x01000193
+    h = (h ^ ((v >> 8) & 0xFF).reinterpret_as_uint()) * 0x01000193
+  }
+  h
+}
+
+///|
+test "demo plays music" {
+  let nes = boot()
+  let samples = record(nes, 120)
+  // About 800 samples per frame at 48 kHz.
+  assert_true(samples.length() > 119 * 790)
+  let mut peak = 0
+  for v in samples {
+    peak = if v.abs() > peak { v.abs() } else { peak }
+  }
+  assert_true(peak > 3000)
+}
+
+///|
+test "holding A plays the DMC drum" {
+  let nes = boot()
+  assert_eq(nes.bus.apu.peek_status() & 0x10, 0)
+  nes.set_buttons(0, @nes.BUTTON_A)
+  let mut playing = false
+  for _ in 0..<20000 {
+    nes.step()
+    if (nes.bus.apu.peek_status() & 0x10) != 0 {
+      playing = true
+      break
+    }
+  }
+  assert_true(playing)
+}
+
+///|
+test "demo sample hash" {
+  let nes = boot()
+  nes.set_buttons(0, @nes.BUTTON_A)
+  inspect(
+    fnv1a(record(nes, 300)),
+    content=(
+      #|2450767127
+    ),
+  )
+}
