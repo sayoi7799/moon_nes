@@ -159,9 +159,9 @@ test "quarter frames clock envelopes at cycle 7457" {
 ///|
 test "mixer is silent at rest and follows the table at full volume" {
   assert_eq(pulse_table[0], 0.0)
-  assert_true((pulse_table[30] - 0.2575).abs() < 0.001)
-  assert_true((tnd_table[202] - 0.7425).abs() < 0.001)
+  assert_true((pulse_table[30] - 0.2585).abs() < 0.001)
+  assert_true((tnd_table[(15 << 11) | (15 << 7) | 127] - 0.7415).abs() < 0.001)
   let apu = Apu::new()
   // The triangle starts at step 0, level 15, even when silent.
-  assert_eq(apu.output(), tnd_table[45])
+  assert_eq(apu.output(), tnd_table[15 << 11])
 }
