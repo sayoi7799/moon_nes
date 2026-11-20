@@ -12,6 +12,9 @@ pub(all) enum Protocol {
   /// The test prints a CRC of its output on screen, and its source lists
   /// the CRCs seen on hardware. Passes if one of them appears.
   ScreenCrc(Array[String])
+  /// The 2005 APU tests: a result code printed as `$XX` when done, where
+  /// $01 means passed.
+  ScreenCode
   /// Holy Mapperel: the 4-digit detail code on screen must be 0000 and the
   /// detected mapper must be the given one.
   Mapperel(Int32)
@@ -193,6 +196,73 @@ pub let test_suite : Array[SuiteRom] = [
   rom("holy-mapperel/M2_P128K_CR8K_V.nes", "Mapper", protocol=Mapperel(2)),
   rom("holy-mapperel/M3_P32K_C32K_H.nes", "Mapper", protocol=Mapperel(3)),
   rom("downloaded/ppu_open_bus/ppu_open_bus.nes", "PPU"),
+  rom("downloaded/apu_test/rom_singles/1-len_ctr.nes", "APU"),
+  rom("downloaded/apu_test/rom_singles/2-len_table.nes", "APU"),
+  rom("downloaded/apu_test/rom_singles/3-irq_flag.nes", "APU"),
+  rom("downloaded/apu_test/rom_singles/4-jitter.nes", "APU"),
+  rom("downloaded/apu_test/rom_singles/5-len_timing.nes", "APU"),
+  rom("downloaded/apu_test/rom_singles/6-irq_flag_timing.nes", "APU"),
+  rom("downloaded/apu_reset/4015_cleared.nes", "APU"),
+  rom("downloaded/apu_reset/4017_timing.nes", "APU"),
+  rom("downloaded/apu_reset/4017_written.nes", "APU"),
+  rom("downloaded/apu_reset/irq_flag_cleared.nes", "APU"),
+  rom("downloaded/apu_reset/len_ctrs_enabled.nes", "APU"),
+  rom("downloaded/apu_reset/works_immediately.nes", "APU"),
+  rom(
+    "downloaded/blargg_apu_2005.07.30/01.len_ctr.nes",
+    "APU",
+    protocol=ScreenCode,
+  ),
+  rom(
+    "downloaded/blargg_apu_2005.07.30/02.len_table.nes",
+    "APU",
+    protocol=ScreenCode,
+  ),
+  rom(
+    "downloaded/blargg_apu_2005.07.30/03.irq_flag.nes",
+    "APU",
+    protocol=ScreenCode,
+  ),
+  rom(
+    "downloaded/blargg_apu_2005.07.30/04.clock_jitter.nes",
+    "APU",
+    protocol=ScreenCode,
+  ),
+  rom(
+    "downloaded/blargg_apu_2005.07.30/05.len_timing_mode0.nes",
+    "APU",
+    protocol=ScreenCode,
+  ),
+  rom(
+    "downloaded/blargg_apu_2005.07.30/06.len_timing_mode1.nes",
+    "APU",
+    protocol=ScreenCode,
+  ),
+  rom(
+    "downloaded/blargg_apu_2005.07.30/07.irq_flag_timing.nes",
+    "APU",
+    protocol=ScreenCode,
+  ),
+  rom(
+    "downloaded/blargg_apu_2005.07.30/08.irq_timing.nes",
+    "APU",
+    protocol=ScreenCode,
+  ),
+  rom(
+    "downloaded/blargg_apu_2005.07.30/09.reset_timing.nes",
+    "APU",
+    protocol=ScreenCode,
+  ),
+  rom(
+    "downloaded/blargg_apu_2005.07.30/10.len_halt_timing.nes",
+    "APU",
+    protocol=ScreenCode,
+  ),
+  rom(
+    "downloaded/blargg_apu_2005.07.30/11.len_reload_timing.nes",
+    "APU",
+    protocol=ScreenCode,
+  ),
   rom("downloaded/apu_test/rom_singles/7-dmc_basics.nes", "APU"),
   rom("downloaded/apu_test/rom_singles/8-dmc_rates.nes", "APU"),
   rom(
@@ -229,6 +299,7 @@ pub fn Nes::run_suite_rom(self : Nes, rom : SuiteRom) -> TestOutcome {
     Legacy(addr) => self.run_legacy_test(rom.frames, result_addr=addr)
     Screen => self.run_screen_test(rom.frames)
     ScreenCrc(crcs) => self.run_screen_crc_test(rom.frames, crcs)
+    ScreenCode => self.run_screen_code_test(rom.frames)
     Mapperel(id) => self.run_mapperel_test(rom.frames, id)
   }
 }

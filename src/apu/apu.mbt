@@ -26,6 +26,8 @@ pub struct Apu {
   /// Cycles until a pending $4017 write takes effect, or -1.
   priv mut reset_delay : Int32
   priv mut pending_mode : Int32
+  /// Last value written to $4017, rewritten on reset.
+  priv mut last_4017 : Int32
   priv mut cycle_parity : Bool
   priv pulse1 : Pulse
   priv pulse2 : Pulse
@@ -47,6 +49,7 @@ pub fn Apu::new() -> Apu {
     counter: 0,
     reset_delay: -1,
     pending_mode: 0,
+    last_4017: 0,
     cycle_parity: false,
     pulse1: Pulse::new(true),
     pulse2: Pulse::new(false),
@@ -220,10 +223,22 @@ pub fn Apu::write(self : Apu, addr : Int32, value : Int32) -> Unit {
       // The sequencer restarts 3 or 4 CPU cycles later, depending on
       // whether the write lands on an APU cycle boundary.
       self.pending_mode = value
+      self.last_4017 = value
       self.reset_delay = if self.cycle_parity { 4 } else { 3 }
     }
     _ => ()
   }
+}
+
+///|
+/// Power-up and the reset button: as if $00 were written to $4015 and the
+/// last $4017 value ($00 at power-up) written again, just before the CPU
+/// starts its reset sequence. The triangle and the DMC level keep their
+/// state (https://www.nesdev.org/wiki/APU, apu_reset tests).
+pub fn Apu::reset(self : Apu) -> Unit {
+  self.write(0x4015, 0x00)
+  self.frame_irq = false
+  self.write(0x4017, self.last_4017)
 }
 
 ///|

@@ -45,6 +45,9 @@ pub fn Nes::run_blargg_test(self : Nes, max_frames : Int32) -> TestOutcome {
     }
     let status = self.peek(0x6000)
     if status == 0x80 {
+      // Right after a reset $6000 still holds the old $81 until the test
+      // starts again, so only a request seen after that counts.
+      reset_at = -1
       continue
     }
     if status == 0x81 {
@@ -122,6 +125,40 @@ pub fn Nes::run_screen_crc_test(
           Failed(1, text)
         }
       }
+    }
+  }
+  TimedOut(self.screen_text())
+}
+
+///|
+/// Value of a hex digit, or -1.
+fn hex_digit(c : Char) -> Int32 {
+  match c {
+    '0'..<='9' => c.to_int() - '0'.to_int()
+    'A'..<='F' => c.to_int() - 'A'.to_int() + 10
+    _ => -1
+  }
+}
+
+///|
+/// Tests that print a result code as `$XX` once finished: $01 is passed,
+/// anything else is the failure code.
+pub fn Nes::run_screen_code_test(self : Nes, max_frames : Int32) -> TestOutcome {
+  for _ in 0..<max_frames {
+    self.run_frame()
+    let text = self.screen_text()
+    for line in text.split("\n") {
+      let word = line.trim(char_set=" ")
+      if word.length() != 3 || word[0] != '$' {
+        continue
+      }
+      let hi = hex_digit(word[1].unsafe_to_char())
+      let lo = hex_digit(word[2].unsafe_to_char())
+      if hi < 0 || lo < 0 {
+        continue
+      }
+      let code = hi * 16 + lo
+      return if code == 1 { Passed(text) } else { Failed(code, text) }
     }
   }
   TimedOut(self.screen_text())

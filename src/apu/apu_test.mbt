@@ -58,3 +58,17 @@ test "length counter does not load while the channel is disabled" {
   apu.write(0x400F, 0xF8)
   assert_eq(apu.peek_status() & 0x08, 0)
 }
+
+///|
+test "reset clears $4015 and rewrites the last $4017 value" {
+  let apu = @apu.Apu::new()
+  apu.write(0x4015, 0x01)
+  apu.write(0x4003, 0x08) // pulse 1 length 254
+  apu.write(0x4017, 0x40) // IRQ inhibit
+  run(apu, 10)
+  apu.reset()
+  assert_eq(apu.read_status() & 0x01, 0)
+  // Still inhibited after the reset, so no frame IRQ.
+  run(apu, 40000)
+  assert_false(apu.irq_line())
+}

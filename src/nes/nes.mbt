@@ -46,6 +46,7 @@ pub fn Nes::load_rom(data : Bytes) -> Nes raise @cartridge.RomError {
   let mapper = @mapper.create(cartridge)
   let bus = @bus.Bus::new(mapper)
   let cpu = @cpu.Cpu::new(bus)
+  bus.apu.reset()
   cpu.reset()
   { cartridge, bus, cpu, }
 }
@@ -53,6 +54,7 @@ pub fn Nes::load_rom(data : Bytes) -> Nes raise @cartridge.RomError {
 ///|
 /// Presses the reset button. RAM and PPU memory keep their contents.
 pub fn Nes::reset(self : Nes) -> Unit {
+  self.bus.apu.reset()
   self.cpu.reset()
 }
 
