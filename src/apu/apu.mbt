@@ -1,8 +1,8 @@
-// The timing half of the 2A03 APU: frame counter, frame IRQ and the four
-// length counters visible through $4015. No sound is generated.
+// The 2A03 APU: frame counter, frame IRQ, length counters and the sound
+// channels (channels.mbt).
 //
-// These exist because they are the CPU's only IRQ source on these boards
-// and many CPU test ROMs use them as a clock.
+// The frame counter is also the CPU's only IRQ source on these boards, and
+// many CPU test ROMs use it as a clock.
 // Reference: https://www.nesdev.org/wiki/APU_Frame_Counter,
 // https://www.nesdev.org/wiki/APU_Length_Counter
 
@@ -27,6 +27,10 @@ pub struct Apu {
   priv mut reset_delay : Int32
   priv mut pending_mode : Int32
   priv mut cycle_parity : Bool
+  priv pulse1 : Pulse
+  priv pulse2 : Pulse
+  priv triangle : Triangle
+  priv noise : Noise
 }
 
 ///|
@@ -42,6 +46,10 @@ pub fn Apu::new() -> Apu {
     reset_delay: -1,
     pending_mode: 0,
     cycle_parity: false,
+    pulse1: Pulse::new(true),
+    pulse2: Pulse::new(false),
+    triangle: Triangle::new(),
+    noise: Noise::new(),
   }
 }
 
@@ -52,18 +60,45 @@ pub fn Apu::irq_line(self : Apu) -> Bool {
 }
 
 ///|
+/// Quarter-frame clock: envelopes and the triangle's linear counter.
+fn Apu::clock_quarter_frame(self : Apu) -> Unit {
+  self.pulse1.envelope.clock()
+  self.pulse2.envelope.clock()
+  self.noise.envelope.clock()
+  self.triangle.clock_linear()
+}
+
+///|
+/// Half-frame clock: length counters and sweep units. Every half frame is
+/// also a quarter frame.
 fn Apu::clock_half_frame(self : Apu) -> Unit {
+  self.clock_quarter_frame()
   for i in 0..<4 {
     if !self.halt[i] && self.length[i] > 0 {
       self.length[i] -= 1
     }
   }
+  self.pulse1.clock_sweep()
+  self.pulse2.clock_sweep()
 }
 
 ///|
-/// Advances the frame sequencer by one CPU cycle.
+/// Advances the APU by one CPU cycle.
 pub fn Apu::step(self : Apu) -> Unit {
   self.cycle_parity = !self.cycle_parity
+  if self.cycle_parity {
+    self.pulse1.clock_timer()
+    self.pulse2.clock_timer()
+  }
+  self.triangle.clock_timer(self.length[2])
+  self.noise.clock_timer()
+  self.step_frame_counter()
+}
+
+///|
+/// Advances the frame sequencer by one CPU cycle. The step numbers are the
+/// wiki's APU cycles times two plus one.
+fn Apu::step_frame_counter(self : Apu) -> Unit {
   if self.reset_delay > 0 {
     self.reset_delay -= 1
     if self.reset_delay == 0 {
@@ -78,6 +113,9 @@ pub fn Apu::step(self : Apu) -> Unit {
   }
   self.counter += 1
   let c = self.counter
+  if c == 7457 || c == 22371 {
+    self.clock_quarter_frame()
+  }
   if self.five_step {
     if c == 14913 || c == 37281 {
       self.clock_half_frame()
@@ -127,6 +165,13 @@ pub fn Apu::peek_status(self : Apu) -> Int32 {
 ///|
 /// Writes to $4000-$4013, $4015 and $4017.
 pub fn Apu::write(self : Apu, addr : Int32, value : Int32) -> Unit {
+  match addr {
+    0x4000..<=0x4003 => self.pulse1.write(addr & 3, value)
+    0x4004..<=0x4007 => self.pulse2.write(addr & 3, value)
+    0x4008..<=0x400B => self.triangle.write(addr & 3, value)
+    0x400C..<=0x400F => self.noise.write(addr & 3, value)
+    _ => ()
+  }
   match addr {
     // Length counter halt bits.
     0x4000 => self.halt[0] = (value & 0x20) != 0

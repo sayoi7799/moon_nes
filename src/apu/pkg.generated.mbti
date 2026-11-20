@@ -11,6 +11,7 @@ pub struct Apu {
 }
 pub fn Apu::irq_line(Self) -> Bool
 pub fn Apu::new() -> Self
+pub fn Apu::output(Self) -> Double
 pub fn Apu::peek_status(Self) -> Int32
 pub fn Apu::read_status(Self) -> Int32
 pub fn Apu::step(Self) -> Unit
