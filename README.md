@@ -1,5 +1,9 @@
 # moon_nes
 
+**在线试玩：<https://sayoi7799.github.io/moon_nes/>**（打开就运行内置演示，可以切换到 Snake、Pong，或载入自己的 ROM；支持键盘和手柄）
+
+<img src="docs/screenshot.png" alt="moon_nes 运行内置演示 ROM 的画面" width="512">
+
 用 MoonBit 编写的 NES（红白机）模拟器，有画面也有声音。核心与平台无关，可以编译到 js、wasm-gc、native 三个后端；附带一个浏览器前端和几个命令行工具。
 
 ## 定位
@@ -26,7 +30,7 @@ NES 的硬件行为有完整的公开文档（[NESdev Wiki](https://www.nesdev.o
 
 ## 测试结果
 
-`moon test` 在 js、wasm-gc、native 三个后端都通过（92 个测试）。下面这张表由 `moon run src/cmd/testroms` 生成，**121 个 ROM 中 113 个通过**。
+`moon test` 在 js、wasm-gc、native 三个后端都通过（98 个测试）。下面这张表由 `moon run src/cmd/testroms` 生成，**121 个 ROM 中 113 个通过**。
 
 ### CPU
 
@@ -115,7 +119,7 @@ MMC3 的扫描线计数器用 blargg 的三组测试验证。它们大多靠写 
 
 ### 其他测试
 
-- **画面回归**：7 个 ROM（5 个 Holy Mapperel，含 MMC3；sprite hit、instr_test）运行固定帧数后，帧缓冲的 FNV-1a 哈希写在快照里；三个后端算出的哈希完全一致（`src/nes/frame_hash_test.mbt`、`src/demo/demo_test.mbt`）。
+- **画面回归**：9 个 ROM（5 个 Holy Mapperel，含 MMC3；sprite hit、instr_test；网页内置的 Snake 和 Pong，过了标题画面再玩两秒）运行固定帧数后，帧缓冲的 FNV-1a 哈希写在快照里；三个后端算出的哈希完全一致（`src/nes/frame_hash_test.mbt`、`src/demo/demo_test.mbt`）。
 - **声音回归**：演示 ROM 按住 A 运行 300 帧，把全部采样量化成 16 位后做 FNV-1a 哈希，写在快照里；三个后端完全一致（`src/demo/demo_test.mbt`）。另有测试检查演示确实有声音、A 键会启动 DMC。
 - **边界情况**：空文件、不足 16 字节、签名错误、PRG/CHR/trainer 截断、PRG 大小为 0、不支持的映射器（含 NES 2.0 的 256 号以上）都返回带说明的 `RomError`（`src/cartridge/cartridge_test.mbt`、`src/nes/nes_test.mbt`）。
 - **单元测试**：CPU 中断与 DMA 周期、映射器 bank 切换、MMC1 串行写、MMC3 的 PRG/CHR bank、镜像、PRG RAM 保护、IRQ 计数器（重装、A12 滤波、新旧两种芯片在 latch 为 0 时的差别）、APU 帧 IRQ 与长度计数器、包络、扫频（两个方波的取负差异和静音条件）、占空比、三角波序列、噪声 LFSR 周期（32767 和 93）、DMC 装载延迟和 IRQ、降采样和滤波、总线镜像、手柄移位顺序等。
@@ -202,14 +206,20 @@ moon run src/cmd/screen -- test-roms/holy-mapperel/M2_P128K_V.nes 600
 
 ### 浏览器
 
+在线版本由 `.github/workflows/pages.yml` 在每次推送到 `main` 时构建 `web/` 并发布到 GitHub Pages（仓库的 Pages 来源需设为 GitHub Actions）。本地运行：
+
 ```bash
 sh scripts/build-web.sh
 python -m http.server -d web 8000
 ```
 
-然后打开 <http://localhost:8000>，点 **Open ROM…** 或把 `.nes` 文件拖进画面，也可以点 **Run demo** 运行内置演示。按键：方向键 = 十字键，`X`/`K` = A，`Z`/`J` = B，`Enter` = Start，`Shift` = Select。ROM 文件只在浏览器本地读取，不会上传。
+然后打开 <http://localhost:8000>。页面打开就运行内置演示；用选择框可以切换到内置的 Snake 和 Pong，也可以点 **Open ROM…** 或把 `.nes` 文件拖进画面。ROM 文件只在浏览器本地读取，不会上传。
 
-声音用 Web Audio 播放。浏览器要求先有用户操作才能出声，所以在点 **Open ROM…** 或 **Run demo** 时启动；**Mute** 静音，暂停时声音也一起暂停。页面每帧把采样发给 AudioWorklet（`web/audio-worklet.js`）里的环形缓冲。为了音画同步又不丢帧，页面把缓冲保持在约 50 ms：缓冲偏少时让核心多产生最多 0.5% 的采样，偏多时少产生。画面始终是 60 fps，0.5% 的音高变化听不出来。缓冲真的空了（例如标签页切到后台）时输出保持最后一个电平，避免爆音。
+键盘：方向键 = 十字键，`X`/`K` = A，`Z`/`J` = B，`Enter` = Start，`Shift` = Select。
+
+手柄：页面每帧读取 Gamepad API，按浏览器的标准布局对应：十字键或左摇杆 = 十字键，右边的面键 = A，下边的面键 = B（和 NES 手柄上 A 在右、B 在左一致），Back = Select，Start = Start。键盘和手柄的按键分开记录、合在一起送给模拟器，可以同时使用。
+
+声音用 Web Audio 播放。浏览器要求先有用户操作才能出声，所以画面上会提示，在页面任意位置第一次点击或按键时启动；**Mute** 静音，暂停时声音也一起暂停。页面每帧把采样发给 AudioWorklet（`web/audio-worklet.js`）里的环形缓冲。为了音画同步又不丢帧，页面把缓冲保持在约 50 ms：缓冲偏少时让核心多产生最多 0.5% 的采样，偏多时少产生。画面始终是 60 fps，0.5% 的音高变化听不出来。缓冲真的空了（例如标签页切到后台）时输出保持最后一个电平，避免爆音。
 
 性能（600 帧，Holy Mapperel MMC1 ROM，release 构建，开着声音）：native 约 740–770 fps，wasm-gc 约 500 fps，js 约 280 fps，都远超 NES 的 60 fps。
 
@@ -226,8 +236,9 @@ src/nes        整机和对外 API、调色板、测试 ROM 判定
 src/demo       迷你 6502 汇编器 + 自制演示 ROM
 src/examples/basic  README 里的最小使用示例
 src/web        浏览器前端（只编译到 js）
-src/cmd/*      nestest、testroms、bench、screen 命令行工具
-web/           页面
+src/png        最小的 PNG 编码器（截图用）
+src/cmd/*      nestest、testroms、bench、screen、snapshot 命令行工具
+web/           页面；web/roms/ 是内置的自制游戏
 ```
 
 依赖方向是 cartridge ← mapper ← ppu ← bus ← nes ← web/cmd。cpu 不依赖任何包，只声明 `CpuBus` trait，因此可以单独接一块平坦 RAM 跑 nestest。
@@ -254,6 +265,8 @@ web/           页面
 - 社区测试 ROM（blargg 的系列测试、kevtris 的 nestest 等）没有明确的再分发许可，所以不提交进仓库，由 `scripts/fetch-test-roms.sh` 从固定 commit 的 [christopherpow/nes-test-roms](https://github.com/christopherpow/nes-test-roms) 下载（CI 中同样如此）。
 - `test-roms/holy-mapperel/` 中的 ROM 来自 Holy Mapperel v0.02，作者 Damian Yerrick，zlib 许可（允许再分发），原样提交并附带其 `LICENSE`。
 - 演示 ROM 由本仓库代码生成。
+- 网页内置的两个自制游戏是 Sebastian Dine 的 [openNES-Snake](https://github.com/sebastiandine/openNES-Snake) 1.0.9 和 [openNES-Pong](https://github.com/sebastiandine/openNES-Pong) 1.0.1，zlib 许可。`web/roms/` 里是作者发布的原版 ROM，未作修改，旁边附有许可证原文和来源说明。这两个仓库的 LICENSE 覆盖整个仓库，美术和音效没有另外标注许可。`web/` 不进入 mooncakes.io 的发布包。
+- `docs/screenshot.png` 由 `moon run src/cmd/snapshot -- demo 120 docs/screenshot.png 2` 生成，画面来自本仓库的演示 ROM。
 
 ## 许可证
 
