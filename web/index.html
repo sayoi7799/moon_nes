@@ -133,6 +133,7 @@
       <tr><td><kbd>Enter</kbd></td><td>Start</td></tr>
       <tr><td><kbd>Shift</kbd></td><td>Select</td></tr>
     </table>
+    <p class="note">Gamepads work too: D-pad or left stick, the right face button is A, the bottom one is B, plus Start and Select/Back.</p>
     <p class="note">Supports mappers 0 (NROM), 1 (MMC1), 2 (UxROM), 3 (CNROM) and 4 (MMC3), with sound.
       ROM files stay in your browser. Only load ROMs you have the right to use.</p>
   </section>
@@ -188,6 +189,44 @@
     }
   }
 
+  // --- Gamepads ---
+  // Standard mapping (https://w3c.github.io/gamepad/#remapping): the right
+  // face button (1) is A and the bottom one (0) is B, matching where A and B
+  // sit on an NES pad; 2 and 3 double them. Back/Select = 8, Start = 9, the
+  // D-pad is 12-15 and the left stick works too.
+  const BUTTON = { A: 0x01, B: 0x02, SELECT: 0x04, START: 0x08, UP: 0x10, DOWN: 0x20, LEFT: 0x40, RIGHT: 0x80 };
+  const PAD_MAP = [
+    [1, BUTTON.A], [3, BUTTON.A], [0, BUTTON.B], [2, BUTTON.B],
+    [8, BUTTON.SELECT], [9, BUTTON.START],
+    [12, BUTTON.UP], [13, BUTTON.DOWN], [14, BUTTON.LEFT], [15, BUTTON.RIGHT],
+  ];
+  const STICK_DEADZONE = 0.5;
+
+  function pollGamepads() {
+    if (!navigator.getGamepads) return;
+    let buttons = 0;
+    for (const gp of navigator.getGamepads()) {
+      if (!gp || !gp.connected) continue;
+      for (const [index, bit] of PAD_MAP) {
+        if (gp.buttons[index] && gp.buttons[index].pressed) buttons |= bit;
+      }
+      const [x = 0, y = 0] = gp.axes;
+      if (x < -STICK_DEADZONE) buttons |= BUTTON.LEFT;
+      if (x > STICK_DEADZONE) buttons |= BUTTON.RIGHT;
+      if (y < -STICK_DEADZONE) buttons |= BUTTON.UP;
+      if (y > STICK_DEADZONE) buttons |= BUTTON.DOWN;
+    }
+    nes.pad(buttons);
+  }
+
+  window.addEventListener("gamepadconnected", (e) => {
+    // Not a user gesture, so sound still waits for a click or key press.
+    setStatus(`Gamepad connected: ${e.gamepad.id}`);
+  });
+  window.addEventListener("gamepaddisconnected", (e) => {
+    setStatus(`Gamepad disconnected: ${e.gamepad.id}`);
+  });
+
   function pumpAudio() {
     if (!audioNode) return;
     const samples = nes.takeAudio();
@@ -236,6 +275,7 @@
     backlog = Math.min(backlog + (now - last), FRAME_MS * 4);
     last = now;
     let ran = 0;
+    if (!paused) pollGamepads();
     while (!paused && backlog >= FRAME_MS) {
       nes.frame(image.data);
       pumpAudio();
