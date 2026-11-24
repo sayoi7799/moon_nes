@@ -41,6 +41,16 @@ test "frame hash: Holy Mapperel CNROM" {
 }
 
 ///|
+test "frame hash: Holy Mapperel MMC3" {
+  inspect(
+    hash_after("holy-mapperel/M4_P256K_C256K.nes", 600),
+    content=(
+      #|1638768773
+    ),
+  )
+}
+
+///|
 test "frame hash: sprite 0 hit screen" {
   let h = hash_after(
     "downloaded/sprite_hit_tests_2005.10.05/02.alignment.nes", 120,

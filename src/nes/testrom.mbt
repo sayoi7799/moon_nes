@@ -90,15 +90,19 @@ pub fn Nes::run_legacy_test(
 
 ///|
 /// Tests that only print their verdict: waits for "Passed", "Failed" or
-/// "Error" to appear in the first nametable.
+/// "Error" to appear in the first nametable. The 2005 tests print them in
+/// capitals.
 pub fn Nes::run_screen_test(self : Nes, max_frames : Int32) -> TestOutcome {
   for _ in 0..<max_frames {
     self.run_frame()
     let text = self.screen_text()
-    if text.contains("Passed") {
+    if text.contains("Passed") || text.contains("PASSED") {
       return Passed(text)
     }
-    if text.contains("Failed") || text.contains("Error") {
+    if text.contains("Failed") ||
+      text.contains("FAILED") ||
+      text.contains("Error") ||
+      text.contains("ERROR") {
       return Failed(1, text)
     }
   }

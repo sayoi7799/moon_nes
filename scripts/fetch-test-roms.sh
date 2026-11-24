@@ -131,6 +131,27 @@ dmc_tests/status.nes
 dmc_tests/status_irq.nes
 sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes
 sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes
+mmc3_test/readme.txt
+mmc3_test/1-clocking.nes
+mmc3_test/2-details.nes
+mmc3_test/3-A12_clocking.nes
+mmc3_test/4-scanline_timing.nes
+mmc3_test/5-MMC3.nes
+mmc3_test/6-MMC6.nes
+mmc3_test_2/readme.txt
+mmc3_test_2/rom_singles/1-clocking.nes
+mmc3_test_2/rom_singles/2-details.nes
+mmc3_test_2/rom_singles/3-A12_clocking.nes
+mmc3_test_2/rom_singles/4-scanline_timing.nes
+mmc3_test_2/rom_singles/5-MMC3.nes
+mmc3_test_2/rom_singles/6-MMC3_alt.nes
+mmc3_irq_tests/readme.txt
+mmc3_irq_tests/1.Clocking.nes
+mmc3_irq_tests/2.Details.nes
+mmc3_irq_tests/3.A12_clocking.nes
+mmc3_irq_tests/4.Scanline_timing.nes
+mmc3_irq_tests/5.MMC3_rev_A.nes
+mmc3_irq_tests/6.MMC3_rev_B.nes
 "
 
 for f in $FILES; do
