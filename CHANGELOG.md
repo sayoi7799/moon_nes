@@ -20,6 +20,11 @@
 - 浏览器前端用 Web Audio（AudioWorklet）播放声音：动态速率控制把缓冲保持在约 50 ms，另有静音按钮。
 - 测试 ROM 套件新增 APU 区，共 30 个 ROM（`apu_test`、`apu_reset`、`blargg_apu_2005.07.30`、`dmc_dma_during_read4`），通过 27 个。新增判定方式 `ScreenCrc` 和 `ScreenCode`。
 - 声音回归测试：演示 ROM 300 帧采样的哈希。
+- MMC3（mapper 4）：PRG/CHR bank 切换、A12 反转、H/V 镜像（四屏幕卡带除外）、`$A001` 的 PRG RAM 开关和写保护、按 PPU A12 上升沿计数的扫描线 IRQ（带滤波）。NES 2.0 子映射器 4 使用 MMC3A 的 IRQ 规则。
+- `Mapper` trait 新增两个带默认实现的方法：`ppu_bus`（PPU 地址总线）和 `irq_line`；总线把映射器的 IRQ 并入 CPU 的 IRQ。
+- PPU 的 8 个精灵槽在第 257–320 点按实机时刻取图案，空槽读 tile $FF，预渲染行也取。画面不变。
+- 测试：blargg 的 `mmc3_test_2`、`mmc3_test`、`mmc3_irq_tests`（18 个，通过 15 个；另外 3 个测的是 MMC3A/MMC6，改成子映射器 4 后通过）；Holy Mapperel 的 4 个 MMC3 ROM（zlib 许可，提交进仓库，全部 0000）；MMC3 的帧哈希。
+- 屏幕判定也接受大写的 PASSED/FAILED（2005 年的测试）。
 
 ### 修复
 
@@ -29,6 +34,8 @@
 ### 变化
 
 - 开着声音时 native 速度从约 1040 fps 降到约 870 fps；`set_sample_rate(0)` 可以关掉声音。
+- 精灵按实机时刻取数后，native 又慢了约 6%，js 约 13%。
+- 不支持映射器的测试改用 mapper 5。
 
 ## [0.1.0] - 2026-11-19
 

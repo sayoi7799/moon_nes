@@ -23,4 +23,6 @@ pub(open) trait Mapper {
   fn ppu_read(Self, Int32) -> Int32
   fn ppu_write(Self, Int32, Int32) -> Unit
   fn mirroring(Self) -> @cartridge.Mirroring
+  fn ppu_bus(Self, Int32, Int64) -> Unit = _
+  fn irq_line(Self) -> Bool = _
 }

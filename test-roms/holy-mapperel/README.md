@@ -20,3 +20,10 @@ behaved as expected.
 | `M2_P128K_V.nes` | 2 | UxROM, CHR RAM |
 | `M2_P128K_CR8K_V.nes` | 2 | UxROM, CHR RAM |
 | `M3_P32K_C32K_H.nes` | 3 | CNROM, 32 KiB CHR ROM |
+| `M4_P128K.nes` | 4 | MMC3, 128 KiB PRG, 8 KiB CHR RAM |
+| `M4_P128K_CR8K.nes` | 4 | MMC3, 128 KiB PRG, 8 KiB CHR RAM |
+| `M4_P128K_CR32K.nes` | 4 | MMC3 (TNROM-like), 32 KiB CHR RAM banked through R0-R5 |
+| `M4_P256K_C256K.nes` | 4 | MMC3 (TSROM-like), 256 KiB PRG, 256 KiB CHR ROM |
+
+The MMC3 ROMs also check the $A001 PRG RAM write protection; a missing
+protection shows up as detail code `2xxx`.

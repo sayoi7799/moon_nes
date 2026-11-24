@@ -55,6 +55,8 @@ pub struct Ppu {
   mut scanline : Int32
   mut dot : Int32
   mut frame_count : Int32
+  /// PPU dots since power-up, for mappers that time the address bus.
+  priv mut dots : Int64
   priv mut odd_frame : Bool
   priv mut skip_dot : Bool
   /// Set when vertical blank starts; cleared by `start_frame`.
@@ -109,6 +111,7 @@ pub fn Ppu::new(mapper : &@mapper.Mapper) -> Ppu {
     scanline: 0,
     dot: 0,
     frame_count: 0,
+    dots: 0,
     odd_frame: false,
     skip_dot: false,
     frame_done: false,
@@ -221,6 +224,26 @@ fn Ppu::mem_read(self : Ppu, addr : Int32) -> Int32 {
 }
 
 ///|
+/// A real access on the PPU bus. Pattern table addresses are shown to the
+/// mapper first; nametable and palette addresses have A12 low, which a
+/// mapper can infer from the gaps between pattern fetches.
+#inline
+fn Ppu::fetch(self : Ppu, addr : Int32) -> Int32 {
+  let a = addr & 0x3FFF
+  if a < 0x2000 {
+    self.mapper.ppu_bus(a, self.dots)
+  }
+  self.mem_read(a)
+}
+
+///|
+/// Outside rendering the PPU address bus shows v, so moving v through
+/// $2006/$2007 is visible to the mapper too.
+fn Ppu::v_moved(self : Ppu) -> Unit {
+  self.mapper.ppu_bus(self.v & 0x3FFF, self.dots)
+}
+
+///|
 fn Ppu::mem_write(self : Ppu, addr : Int32, value : Int32) -> Unit {
   let a = addr & 0x3FFF
   if a < 0x2000 {
@@ -270,13 +293,14 @@ pub fn Ppu::read_register(self : Ppu, reg : Int32) -> Int32 {
       if addr >= 0x3F00 {
         // Palette reads are immediate; the buffer gets the nametable byte
         // "underneath" the palette.
-        self.refresh_latch(self.mem_read(addr), 0x3F)
+        self.refresh_latch(self.fetch(addr), 0x3F)
         self.read_buffer = self.mem_read(addr - 0x1000)
       } else {
         self.refresh_latch(self.read_buffer, 0xFF)
-        self.read_buffer = self.mem_read(addr)
+        self.read_buffer = self.fetch(addr)
       }
       self.increment_after_access()
+      self.v_moved()
     }
     _ => ()
   }
@@ -314,10 +338,13 @@ pub fn Ppu::write_register(self : Ppu, reg : Int32, value : Int32) -> Unit {
         self.t = (self.t & 0x7F00) | value
         self.v = self.t
         self.w = false
+        self.v_moved()
       }
     7 => {
+      self.v_moved()
       self.mem_write(self.v, value)
       self.increment_after_access()
+      self.v_moved()
     }
     _ => ()
   }
@@ -423,11 +450,11 @@ fn Ppu::fetch_background(self : Ppu) -> Unit {
   match (self.dot - 1) & 7 {
     0 => {
       self.reload_shifters()
-      self.nt_latch = self.mem_read(0x2000 | (self.v & 0x0FFF))
+      self.nt_latch = self.fetch(0x2000 | (self.v & 0x0FFF))
     }
     2 => {
       let v = self.v
-      let at = self.mem_read(
+      let at = self.fetch(
         0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07),
       )
       let shift = ((v >> 4) & 4) | (v & 2)
@@ -435,11 +462,11 @@ fn Ppu::fetch_background(self : Ppu) -> Unit {
     }
     4 => {
       let base = ((self.ctrl & 0x10) << 8) | (self.nt_latch << 4)
-      self.pt_lo_latch = self.mem_read(base | ((self.v >> 12) & 7))
+      self.pt_lo_latch = self.fetch(base | ((self.v >> 12) & 7))
     }
     6 => {
       let base = ((self.ctrl & 0x10) << 8) | (self.nt_latch << 4)
-      self.pt_hi_latch = self.mem_read(base | ((self.v >> 12) & 7) | 8)
+      self.pt_hi_latch = self.fetch(base | ((self.v >> 12) & 7) | 8)
     }
     7 => self.inc_coarse_x()
     _ => ()
@@ -513,39 +540,72 @@ fn reverse_bits(b : Int32) -> Int32 {
 }
 
 ///|
-/// Fetches pattern data for the sprites found by evaluation (dots 257-320).
-fn Ppu::fetch_sprites(self : Ppu) -> Unit {
+/// Pattern address of sprite slot `i` for the next line. Slots beyond the
+/// sprites found by evaluation hold tile $FF, which the hardware fetches
+/// anyway ($1FF0 or $0FF0 for 8x8 sprites, $1FE0 for 8x16).
+fn Ppu::sprite_slot_address(self : Ppu, i : Int32) -> Int32 {
   let height = self.sprite_height()
-  let line = self.scanline
-  for i in 0..<self.eval_count {
-    let base = self.eval_index[i] * 4
-    let y = self.oam[base]
-    let tile = self.oam[base + 1]
-    let attr = self.oam[base + 2]
-    let mut row = line - y
-    if (attr & 0x80) != 0 {
-      row = height - 1 - row
-    }
-    let addr = if height == 16 {
-      let table = (tile & 1) << 12
-      let t = (tile & 0xFE) + (if row >= 8 { 1 } else { 0 })
-      table | (t << 4) | (row & 7)
+  if i >= self.line_count {
+    return if height == 16 {
+      0x1FE0
     } else {
-      ((self.ctrl & 0x08) << 9) | (tile << 4) | row
+      ((self.ctrl & 0x08) << 9) | 0x0FF0
     }
-    let mut lo = self.mem_read(addr)
-    let mut hi = self.mem_read(addr + 8)
-    if (attr & 0x40) != 0 {
-      lo = reverse_bits(lo)
-      hi = reverse_bits(hi)
-    }
-    self.line_x[i] = self.oam[base + 3]
-    self.line_attr[i] = attr
-    self.line_lo[i] = lo
-    self.line_hi[i] = hi
   }
-  self.line_count = self.eval_count
-  self.line_has_sprite0 = self.eval_has_sprite0
+  let base = self.eval_index[i] * 4
+  let y = self.oam[base]
+  let tile = self.oam[base + 1]
+  let attr = self.oam[base + 2]
+  let mut row = self.scanline - y
+  if (attr & 0x80) != 0 {
+    row = height - 1 - row
+  }
+  if height == 16 {
+    let table = (tile & 1) << 12
+    let t = (tile & 0xFE) + (if row >= 8 { 1 } else { 0 })
+    table | (t << 4) | (row & 7)
+  } else {
+    ((self.ctrl & 0x08) << 9) | (tile << 4) | row
+  }
+}
+
+///|
+/// Sprite fetches for the next line, dots 257-320: eight slots of 8 dots
+/// each, with the two pattern bytes at offsets 4 and 6, the same offsets
+/// as the background pattern fetches. All eight slots are fetched
+/// on visible lines and on the pre-render line, which matters to mappers
+/// that count A12 rises (MMC3).
+fn Ppu::fetch_sprites(self : Ppu) -> Unit {
+  let offset = self.dot - 257
+  let i = offset >> 3
+  match offset & 7 {
+    0 =>
+      if i == 0 {
+        let visible = self.scanline < 240
+        self.line_count = if visible { self.eval_count } else { 0 }
+        self.line_has_sprite0 = visible && self.eval_has_sprite0
+      }
+    // Offsets 0 and 2 are garbage nametable reads on hardware. They have
+    // no side effects and keep A12 low, so they are skipped.
+    4 => {
+      let lo = self.fetch(self.sprite_slot_address(i))
+      if i < self.line_count {
+        let base = self.eval_index[i] * 4
+        let attr = self.oam[base + 2]
+        self.line_x[i] = self.oam[base + 3]
+        self.line_attr[i] = attr
+        self.line_lo[i] = if (attr & 0x40) != 0 { reverse_bits(lo) } else { lo }
+      }
+    }
+    6 => {
+      let hi = self.fetch(self.sprite_slot_address(i) + 8)
+      if i < self.line_count {
+        let attr = self.line_attr[i]
+        self.line_hi[i] = if (attr & 0x40) != 0 { reverse_bits(hi) } else { hi }
+      }
+    }
+    _ => ()
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -637,13 +697,11 @@ pub fn Ppu::step(self : Ppu) -> Unit {
       if dot == self.overflow_dot {
         self.sprite_overflow = true
       }
-      if dot == 257 {
-        self.fetch_sprites()
-      }
-    } else if dot == 257 {
-      // Nothing is evaluated on the pre-render line: line 0 has no sprites.
-      self.line_count = 0
-      self.line_has_sprite0 = false
+    }
+    // Nothing is evaluated on the pre-render line, so line 0 has no
+    // sprites, but the eight slots are still fetched.
+    if dot >= 257 && dot <= 320 {
+      self.fetch_sprites()
     }
   } else if visible && dot >= 1 && dot <= 256 {
     // Rendering disabled: show the backdrop, or the palette entry v points
@@ -681,6 +739,7 @@ fn Ppu::advance(self : Ppu) -> Unit {
     }
   }
   self.dot += 1
+  self.dots += 1L
   if self.dot > 340 {
     self.dot = 0
     self.scanline += 1
