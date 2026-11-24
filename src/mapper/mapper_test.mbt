@@ -45,15 +45,16 @@ fn board(
 
 ///|
 test "unsupported mapper is an error, not a crash" {
-  let cart = @cartridge.parse(rom(4, 2, 1, 0))
+  let cart = @cartridge.parse(rom(5, 2, 1, 0))
   let r = try {
     @mapper.create(cart) |> ignore
     None
   } catch {
     e => Some(e)
   }
-  assert_true(r is Some(UnsupportedMapper(4)))
-  assert_false(@mapper.is_supported(4))
+  assert_true(r is Some(UnsupportedMapper(5)))
+  assert_false(@mapper.is_supported(5))
+  assert_true(@mapper.is_supported(4))
 }
 
 ///|

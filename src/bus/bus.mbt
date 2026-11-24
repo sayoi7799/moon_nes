@@ -187,7 +187,7 @@ pub impl @cpu.CpuBus for Bus with fn nmi_line(self) {
 
 ///|
 pub impl @cpu.CpuBus for Bus with fn irq_line(self) {
-  self.apu.irq_line()
+  self.apu.irq_line() || self.mapper.irq_line()
 }
 
 ///|

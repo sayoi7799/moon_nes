@@ -33,11 +33,11 @@ fn load_error(data : Bytes) -> @cartridge.RomError? {
 
 ///|
 test "load_rom rejects unsupported mappers with an error" {
-  // Mapper 4 (MMC3): low nibble 4 in flags 6.
-  let e = load_error(header(2, 1, 0x40, 0x00))
-  assert_true(e is Some(UnsupportedMapper(4)))
+  // Mapper 5 (MMC5): low nibble 5 in flags 6.
+  let e = load_error(header(2, 1, 0x50, 0x00))
+  assert_true(e is Some(UnsupportedMapper(5)))
   match e {
-    Some(err) => assert_eq(err.message(), "mapper 4 is not supported")
+    Some(err) => assert_eq(err.message(), "mapper 5 is not supported")
     None => fail("expected an error")
   }
   // A NES 2.0 mapper number above 255.

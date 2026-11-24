@@ -18,11 +18,18 @@ pub(open) trait Mapper {
   /// A12 low) and whenever $2006/$2007 move the VRAM address. Boards that
   /// watch the address lines (MMC3 counts rises of A12) override it.
   fn ppu_bus(Self, addr : Int32, dot : Int64) -> Unit = _
+  /// IRQ output of the board (true = asserted).
+  fn irq_line(Self) -> Bool = _
 }
 
 ///|
 impl Mapper with fn ppu_bus(_, _, _) {
   ()
+}
+
+///|
+impl Mapper with fn irq_line(_) {
+  false
 }
 
 ///|
@@ -33,13 +40,14 @@ pub fn create(cart : @cartridge.Cartridge) -> &Mapper raise @cartridge.RomError 
     1 => Mmc1::new(cart)
     2 => Uxrom::new(cart)
     3 => Cnrom::new(cart)
+    4 => Mmc3::new(cart)
     id => raise @cartridge.UnsupportedMapper(id)
   }
 }
 
 ///|
 pub fn is_supported(mapper_id : Int32) -> Bool {
-  mapper_id >= 0 && mapper_id <= 3
+  mapper_id >= 0 && mapper_id <= 4
 }
 
 ///|
