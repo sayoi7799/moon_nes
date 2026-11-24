@@ -1,0 +1,9 @@
+import {
+  "sayoi7799/moon_nes/nes",
+  "sayoi7799/moon_nes/demo",
+  "sayoi7799/moon_nes/png",
+  "moonbitlang/x/fs",
+  "moonbitlang/core/env",
+}
+
+pkgtype(kind: "executable")
