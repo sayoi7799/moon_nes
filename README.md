@@ -6,7 +6,7 @@
 
 NES 的硬件行为有完整的公开文档（[NESdev Wiki](https://www.nesdev.org/wiki/)），社区也有公认的测试 ROM，模拟得对不对可以客观验证。MoonBit 生态里此前没有 NES 模拟器，也没有 6502 CPU 实现；最接近的是 [sacckey/lunaboy](https://github.com/sacckey/lunaboy)（Game Boy），CPU 和整机结构都不同。
 
-本项目从零实现了 2A03 CPU（含 APU 的五个声道）、2C02 PPU 和四种常见卡带映射器，以周期为单位精确同步，并用 nestest 日志和 99 个测试 ROM 逐项验证。
+本项目从零实现了 2A03 CPU（含 APU 的五个声道）、2C02 PPU 和五种常见卡带映射器（包括最常用的 MMC3），以周期为单位精确同步，并用 nestest 日志和 121 个测试 ROM 逐项验证。
 
 ## 支持范围
 
@@ -14,19 +14,19 @@ NES 的硬件行为有完整的公开文档（[NESdev Wiki](https://www.nesdev.o
 |---|---|
 | 卡带 | iNES 解析、NES 2.0 头识别（12 位映射器号、子映射器、指数形式的 ROM 大小、RAM 大小字段）、trainer、兼容 "DiskDude!" 脏头；非法或截断的文件返回 `RomError`，不会崩溃 |
 | CPU | 2A03（6502，无十进制模式）：151 条官方指令和常见非官方指令（LAX、SAX、DCP、ISB、SLO、RLA、SRE、RRA、ANC、ALR、ARR、AXS、LAS、SHA/SHX/SHY/TAS、各类 NOP、JAM）；每个周期一次总线访问，包括 dummy read/write；NMI 边沿检测、IRQ 电平触发、在倒数第二个周期采样中断、BRK/IRQ 被 NMI 劫持、同页跳转分支少采样一次 |
-| PPU | 逐点推进（262 行 × 341 点）；背景取数流水线和 16 位移位寄存器；loopy v/t/x/w 滚动；精灵求值（含溢出标志的斜向扫描 bug 和置位时刻）；精灵 0 碰撞、优先级、左 8 像素裁剪、8×16 精灵；VBlank/NMI 时序及 `$2002` 读取抑制；奇数帧跳点；`$2007` 读缓冲；调色板镜像；开路总线衰减 |
-| 映射器 | 0 NROM、1 MMC1（SxROM/SNROM/SUROM，5 位串行移位寄存器，忽略相邻周期的连续写，MMC1B 的 PRG RAM 禁用）、2 UxROM、3 CNROM |
+| PPU | 逐点推进（262 行 × 341 点）；背景取数流水线和 16 位移位寄存器；loopy v/t/x/w 滚动；精灵求值（含溢出标志的斜向扫描 bug 和置位时刻）；8 个精灵槽在第 257–320 点按实机时刻取图案，空槽读 tile $FF，预渲染行也取；精灵 0 碰撞、优先级、左 8 像素裁剪、8×16 精灵；VBlank/NMI 时序及 `$2002` 读取抑制；奇数帧跳点；`$2007` 读缓冲；调色板镜像；开路总线衰减 |
+| 映射器 | 0 NROM、1 MMC1（SxROM/SNROM/SUROM，5 位串行移位寄存器，忽略相邻周期的连续写，MMC1B 的 PRG RAM 禁用）、2 UxROM、3 CNROM、4 MMC3（TxROM：8 KiB PRG 和 1/2 KiB CHR bank、A12 反转、H/V 镜像、四屏幕卡带、`$A001` 的 PRG RAM 开关和写保护；扫描线 IRQ 按 PPU A12 的上升沿计数，A12 需先保持低电平 9 个点；NES 2.0 子映射器 4 按 MMC3A 的 IRQ 规则） |
 | APU | 帧计数器（4/5 步模式，1/4 帧和半帧时钟、帧 IRQ、`$4017` 写入的 3/4 周期延迟）；两个方波（包络、扫频、方波 1 反码/方波 2 补码取负、周期 < 8 或目标 > $7FF 静音）；三角波（线性计数器，停住时保持电平）；噪声（15 位 LFSR、长/短模式）；DMC（内存读取器、1 字节缓冲、IRQ、循环）；上电和复位时 `$4015`/`$4017` 的状态 |
 | DMC DMA | 取样本字节时让 CPU 停 3–4 个周期（halt、dummy、可选的对齐、get），在 OAM DMA 中只多占 2 个周期；停顿期间重复 CPU 原本的读，因此 `$2007` 会被多读，而连续读 `$4016/$4017` 只移一位 |
 | 声音输出 | 非线性混音（NESdev Wiki 的精确公式，预先算成表）；每个 CPU 周期的输出按区间平均降到输出采样率（默认 48 kHz），再经过 90 Hz 高通和 14 kHz 低通；只用加减乘除，三个后端的采样逐位一致 |
 | 其他 | 标准手柄（`$4016/$4017`）、OAM DMA（513/514 周期） |
 | API | `Nes::load_rom`、`run_frame`、`frame_buffer`（256×240）、`write_rgba`、`set_buttons`、`reset`、`frame_hash`、`set_sample_rate`、`take_samples` |
 
-不支持：MMC3 和其他映射器、存档和即时存档、32 KiB WRAM 分页的 SXROM/SOROM、PAL 机型、扩展音源。三角波周期小于 2 时会产生超声波，这里让它停住，和多数模拟器一样。
+不支持：其他映射器（包括 MMC6 的 PRG RAM 和 MMC3 的变体板子 TxSROM/TQROM）、存档和即时存档、32 KiB WRAM 分页的 SXROM/SOROM、PAL 机型、扩展音源。三角波周期小于 2 时会产生超声波，这里让它停住，和多数模拟器一样。
 
 ## 测试结果
 
-`moon test` 在 js、wasm-gc、native 三个后端都通过（83 个测试）。下面这张表由 `moon run src/cmd/testroms` 生成，**99 个 ROM 中 94 个通过**。
+`moon test` 在 js、wasm-gc、native 三个后端都通过（92 个测试）。下面这张表由 `moon run src/cmd/testroms` 生成，**121 个 ROM 中 113 个通过**。
 
 ### CPU
 
@@ -88,15 +88,37 @@ NES 的硬件行为有完整的公开文档（[NESdev Wiki](https://www.nesdev.o
 | M1_P512K_CR8K_S8K | MMC1 SUROM，512 KiB PRG | ✅ 0000 |
 | M2_P128K_V、M2_P128K_CR8K_V | UxROM | ✅ 0000 ×2 |
 | M3_P32K_C32K_H | CNROM | ✅ 0000 |
+| M4_P128K、M4_P128K_CR8K | MMC3，8 KiB CHR RAM | ✅ 0000 ×2 |
+| M4_P128K_CR32K | MMC3，32 KiB CHR RAM | ✅ 0000 |
+| M4_P256K_C256K | MMC3，256 KiB PRG 和 CHR ROM | ✅ 0000 |
+
+MMC3 的 4 个 ROM 还检查 `$A001` 的 PRG RAM 写保护，没实现时详细码会是 `2xxx`。
+
+MMC3 的扫描线计数器用 blargg 的三组测试验证。它们大多靠写 `$2006` 手动拨动 A12 来测计数器，`4-scanline_timing` 则测 IRQ 落在扫描线的哪一点：
+
+| 测试 ROM | 测什么 | 结果 |
+|---|---|---|
+| mmc3_test_2 1-clocking | A12 上升沿让计数器减 1 或重装 | ✅ |
+| mmc3_test_2 2-details | `$C000`/`$C001`/`$E000`/`$E001` 的细节：重装时机、写 `$C001` 不置 IRQ、关 IRQ 后计数器照常运行 | ✅ |
+| mmc3_test_2 3-A12_clocking | 只有经过滤波的 A12 上升沿才计数 | ✅ |
+| mmc3_test_2 4-scanline_timing | IRQ 在扫描线上的精确时刻（依赖精灵取数时刻） | ✅ |
+| mmc3_test_2 5-MMC3 | MMC3B/C：latch 为 0 时每次计数都触发 IRQ | ✅ |
+| mmc3_test_2 6-MMC3_alt | MMC3A：只在计数器变成 0 时触发 | ❌ code 2 |
+| mmc3_test 1–5 | 旧版的同一组测试 | ✅ 5/5 |
+| mmc3_test 6-MMC6 | MMC6 的 IRQ 行为（与 MMC3A 相同） | ❌ code 3 |
+| mmc3_irq_tests 1–4、6.MMC3_rev_B | 2005 年版：计数、细节、A12、时序、MMC3B | ✅ 5/5 |
+| mmc3_irq_tests 5.MMC3_rev_A | 2005 年版：MMC3A | ❌ |
+
+三个 ❌ 测的都是另一种芯片版本。iNES 头没法说明卡带用的是哪种芯片，这里按最常见的 MMC3B/C 处理；NES 2.0 头标明子映射器 4 时才用 MMC3A 的规则。`src/nes/rom_suite_test.mbt` 里有一个测试把这三个 ROM 的头改成子映射器 4 再运行，三个都通过。
 
 此外还有一个自制演示 ROM（见下文），在测试里模拟手柄输入，检查精灵坐标、画面和声音。
 
 ### 其他测试
 
-- **画面回归**：6 个 ROM（4 个 Holy Mapperel、sprite hit、instr_test）运行固定帧数后，帧缓冲的 FNV-1a 哈希写在快照里；三个后端算出的哈希完全一致（`src/nes/frame_hash_test.mbt`、`src/demo/demo_test.mbt`）。
+- **画面回归**：7 个 ROM（5 个 Holy Mapperel，含 MMC3；sprite hit、instr_test）运行固定帧数后，帧缓冲的 FNV-1a 哈希写在快照里；三个后端算出的哈希完全一致（`src/nes/frame_hash_test.mbt`、`src/demo/demo_test.mbt`）。
 - **声音回归**：演示 ROM 按住 A 运行 300 帧，把全部采样量化成 16 位后做 FNV-1a 哈希，写在快照里；三个后端完全一致（`src/demo/demo_test.mbt`）。另有测试检查演示确实有声音、A 键会启动 DMC。
 - **边界情况**：空文件、不足 16 字节、签名错误、PRG/CHR/trainer 截断、PRG 大小为 0、不支持的映射器（含 NES 2.0 的 256 号以上）都返回带说明的 `RomError`（`src/cartridge/cartridge_test.mbt`、`src/nes/nes_test.mbt`）。
-- **单元测试**：CPU 中断与 DMA 周期、映射器 bank 切换、MMC1 串行写、APU 帧 IRQ 与长度计数器、包络、扫频（两个方波的取负差异和静音条件）、占空比、三角波序列、噪声 LFSR 周期（32767 和 93）、DMC 装载延迟和 IRQ、降采样和滤波、总线镜像、手柄移位顺序等。
+- **单元测试**：CPU 中断与 DMA 周期、映射器 bank 切换、MMC1 串行写、MMC3 的 PRG/CHR bank、镜像、PRG RAM 保护、IRQ 计数器（重装、A12 滤波、新旧两种芯片在 latch 为 0 时的差别）、APU 帧 IRQ 与长度计数器、包络、扫频（两个方波的取负差异和静音条件）、占空比、三角波序列、噪声 LFSR 周期（32767 和 93）、DMC 装载延迟和 IRQ、降采样和滤波、总线镜像、手柄移位顺序等。
 
 测试 ROM 结果会和 `src/nes/rom_suite_test.mbt` 里的「已知未通过」清单对比：清单外的 ROM 没过算回归；清单内的 ROM 变成通过也会报错，提醒更新清单和这张表。
 
@@ -189,13 +211,13 @@ python -m http.server -d web 8000
 
 声音用 Web Audio 播放。浏览器要求先有用户操作才能出声，所以在点 **Open ROM…** 或 **Run demo** 时启动；**Mute** 静音，暂停时声音也一起暂停。页面每帧把采样发给 AudioWorklet（`web/audio-worklet.js`）里的环形缓冲。为了音画同步又不丢帧，页面把缓冲保持在约 50 ms：缓冲偏少时让核心多产生最多 0.5% 的采样，偏多时少产生。画面始终是 60 fps，0.5% 的音高变化听不出来。缓冲真的空了（例如标签页切到后台）时输出保持最后一个电平，避免爆音。
 
-性能（600 帧，Holy Mapperel MMC1 ROM，release 构建，开着声音）：native 约 870 fps，wasm-gc 约 540 fps，js 约 350 fps，都远超 NES 的 60 fps。
+性能（600 帧，Holy Mapperel MMC1 ROM，release 构建，开着声音）：native 约 740–770 fps，wasm-gc 约 500 fps，js 约 280 fps，都远超 NES 的 60 fps。
 
 ## 结构
 
 ```
 src/cartridge  iNES / NES 2.0 解析 → Cartridge
-src/mapper     Mapper trait + NROM / MMC1 / UxROM / CNROM
+src/mapper     Mapper trait + NROM / MMC1 / UxROM / CNROM / MMC3
 src/cpu        CpuBus trait + 2A03 核心 + 反汇编和 nestest 格式跟踪
 src/ppu        逐点 PPU
 src/apu        APU：帧计数器、五个声道、混音、降采样和滤波
@@ -213,6 +235,8 @@ web/           页面
 **CPU 与 PPU 的同步**：CPU 的每次读写正好是一个周期。总线在访问前让 PPU 走 2 个点、APU 走一步，访问后再走 1 个点，所以每个 CPU 周期是 3 个 PPU 点。CPU 在每个周期结束时采样中断线。把访问放在第 2 和第 3 个点之间，是 `ppu_vbl_nmi` 各项时序测试共同要求的位置。
 
 **DMC DMA**：DMC 要取样本字节时，CPU 在下一个读周期前停下。停顿由 CPU 自己执行（`CpuBus` 的 `dmc_dma_pending` 和 `dmc_dma_cycle`，带默认实现），所以停顿周期也计入 CPU 周期数并照常看中断线，nestest 的周期列和中断时序都不受影响。DMC 没开时不会触发，现有的 CPU 和 PPU 时序测试结果不变。
+
+**MMC3 与 PPU 的配合**：MMC3 的计数器看的是 PPU 地址线 A12，所以 PPU 必须在真实的时刻、用真实的地址取数。逐点 PPU 在第 1–256 点和第 321–336 点取背景，在第 257–320 点给 8 个精灵槽取图案（每槽 8 点，图案字节在第 4、6 点；空槽读 tile $FF；预渲染行也取）。每次读图案表（`$0000-$1FFF`），PPU 都调用 `Mapper::ppu_bus(地址, 点数)`；不渲染时写 `$2006`、读写 `$2007` 改变了 v，也会调用，因为这时地址总线上就是 v。名称表和属性的读取 A12 一定是低电平，所以不必通知。MMC3 记录 A12 什么时候变低，变高时如果已经低了至少 9 个点（约 3 个 CPU 周期，相当于 MMC3 等 M2 的 3 个下降沿），就让计数器走一步。常见设置（背景用 `$0000`、精灵用 `$1000`）下，每行在第 260 点左右走一步；同一行精灵槽之间的短暂低电平只有 4 点，被滤掉。
 
 ## 演示 ROM
 
