@@ -1,2 +1,5 @@
 * text=auto eol=lf
 *.nes binary
+
+# Third-party license texts are kept byte for byte as published.
+web/roms/*.txt -text
