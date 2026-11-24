@@ -13,6 +13,16 @@ pub(open) trait Mapper {
   fn ppu_read(Self, Int32) -> Int32
   fn ppu_write(Self, Int32, Int32) -> Unit
   fn mirroring(Self) -> @cartridge.Mirroring
+  /// Address the PPU puts on its bus, at PPU dot `dot` (a running count).
+  /// Called for every pattern table fetch ($0000-$1FFF; other fetches have
+  /// A12 low) and whenever $2006/$2007 move the VRAM address. Boards that
+  /// watch the address lines (MMC3 counts rises of A12) override it.
+  fn ppu_bus(Self, addr : Int32, dot : Int64) -> Unit = _
+}
+
+///|
+impl Mapper with fn ppu_bus(_, _, _) {
+  ()
 }
 
 ///|
