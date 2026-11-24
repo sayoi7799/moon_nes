@@ -1,13 +1,22 @@
 // Browser front end. The emulator runs entirely in MoonBit; this package
 // only adapts it to the page through a handful of JS FFI functions.
-// The page glue (web/index.html) owns the canvas, the 60 Hz loop and the
-// file picker, and calls into the functions registered on `moonNes`.
+// The page glue (web/index.html) owns the canvas, the 60 Hz loop, the file
+// picker and Web Audio, and calls into the functions registered on
+// `moonNes`.
 
 ///|
 let console : Ref[@nes.Nes?] = { val: None, }
 
 ///|
 let held_buttons : Ref[Int32] = { val: 0, }
+
+///|
+/// Audio output rate chosen by the page; 0 until sound is enabled, so no
+/// samples are generated before the page can play them.
+let sample_rate : Ref[Double] = { val: 0.0, }
+
+///|
+let audio_buffer : FixedArray[Double] = FixedArray::make(4096, 0.0)
 
 ///|
 /// Keyboard layout: arrows = D-pad, X = A, Z = B, Enter = Start,
@@ -32,6 +41,7 @@ fn load(data : Bytes) -> String {
   try {
     let nes = @nes.Nes::load_rom(data)
     nes.set_buttons(0, held_buttons.val)
+    nes.set_sample_rate(sample_rate.val)
     console.val = Some(nes)
     ""
   } catch {
@@ -77,6 +87,24 @@ fn key(code : String, down : Bool) -> Bool {
 }
 
 ///|
+/// Sets the output rate. The page calls this every frame with a slightly
+/// adjusted rate to keep its audio buffer at a steady fill level.
+fn set_rate(rate : Double) -> Unit {
+  sample_rate.val = rate
+  if console.val is Some(nes) {
+    nes.set_sample_rate(rate)
+  }
+}
+
+///|
+/// The samples produced since the last call.
+fn take_audio() -> FixedArray[Double] {
+  guard console.val is Some(nes) else { return [] }
+  let n = nes.take_samples(audio_buffer)
+  FixedArray::makei(n, i => audio_buffer[i])
+}
+
+///|
 fn reset() -> Unit {
   if console.val is Some(nes) {
     nes.reset()
@@ -91,13 +119,26 @@ extern "js" fn register(
   frame : (FixedArray[Byte]) -> Unit,
   key : (String, Bool) -> Bool,
   reset : () -> Unit,
+  set_rate : (Double) -> Unit,
+  take_audio : () -> FixedArray[Double],
 ) -> Unit =
-  #|(load, demo, describe, frame, key, reset) => {
-  #|  globalThis.moonNes = { load, demo, describe, frame, key, reset };
+  #|(load, demo, describe, frame, key, reset, setSampleRate, takeAudio) => {
+  #|  globalThis.moonNes = {
+  #|    load, demo, describe, frame, key, reset, setSampleRate, takeAudio,
+  #|  };
   #|  globalThis.dispatchEvent(new Event("moon-nes-ready"));
   #|}
 
 ///|
 fn main {
-  register(load, () => load(@demo.demo_rom()), describe, frame, key, reset)
+  register(
+    load,
+    () => load(@demo.demo_rom()),
+    describe,
+    frame,
+    key,
+    reset,
+    set_rate,
+    take_audio,
+  )
 }

@@ -17,6 +17,25 @@ pub(open) trait CpuBus {
   fn irq_line(Self) -> Bool
   /// Returns the page written to $4014 since the last call, or -1.
   fn take_dma_request(Self) -> Int32
+  /// True when a DMC sample fetch wants to halt the CPU. Only read cycles
+  /// can be halted.
+  fn dmc_dma_pending(Self) -> Bool = _
+  /// Runs one cycle of a DMC DMA while the CPU is halted before reading
+  /// `addr`, and returns true on the cycle that fetched the sample byte.
+  /// `in_oam_dma` means the CPU is already halted by OAM DMA, so the halt
+  /// and dummy cycles are skipped.
+  fn dmc_dma_cycle(Self, addr : Int32, in_oam_dma : Bool) -> Bool = _
+}
+
+///|
+/// Buses without a DMC never request a sample fetch.
+impl CpuBus with fn dmc_dma_pending(_) {
+  false
+}
+
+///|
+impl CpuBus with fn dmc_dma_cycle(_, _, _) {
+  true
 }
 
 ///|

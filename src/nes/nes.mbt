@@ -46,6 +46,7 @@ pub fn Nes::load_rom(data : Bytes) -> Nes raise @cartridge.RomError {
   let mapper = @mapper.create(cartridge)
   let bus = @bus.Bus::new(mapper)
   let cpu = @cpu.Cpu::new(bus)
+  bus.apu.reset()
   cpu.reset()
   { cartridge, bus, cpu, }
 }
@@ -53,6 +54,7 @@ pub fn Nes::load_rom(data : Bytes) -> Nes raise @cartridge.RomError {
 ///|
 /// Presses the reset button. RAM and PPU memory keep their contents.
 pub fn Nes::reset(self : Nes) -> Unit {
+  self.bus.apu.reset()
   self.cpu.reset()
 }
 
@@ -109,6 +111,28 @@ pub fn Nes::peek(self : Nes, addr : Int32) -> Int32 {
 ///|
 pub fn Nes::frame_count(self : Nes) -> Int32 {
   self.bus.ppu.frame_count
+}
+
+///|
+/// Sets the audio output rate in Hz (default 48000), or 0 to turn sound
+/// generation off. Front ends may nudge the rate slightly every frame to
+/// keep their audio buffer at a steady level.
+pub fn Nes::set_sample_rate(self : Nes, rate : Double) -> Unit {
+  self.bus.apu.set_sample_rate(rate)
+}
+
+///|
+/// Number of audio samples produced and not yet taken, about 800 per frame
+/// at 48 kHz. The buffer keeps the latest second.
+pub fn Nes::samples_available(self : Nes) -> Int32 {
+  self.bus.apu.samples_available()
+}
+
+///|
+/// Moves up to `out.length()` mono samples (roughly -1.0..1.0, oldest
+/// first) into `out` and returns how many were written.
+pub fn Nes::take_samples(self : Nes, out : FixedArray[Double]) -> Int32 {
+  self.bus.apu.take_samples(out)
 }
 
 ///|

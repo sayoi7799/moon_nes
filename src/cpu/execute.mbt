@@ -313,6 +313,7 @@ fn[B : CpuBus] Cpu::branch(self : Cpu[B], taken : Bool) -> Unit {
   // on its extra cycle, delaying a pending interrupt by one instruction.
   let target = (self.pc + (if off >= 0x80 { off - 0x100 } else { off })) &
     0xFFFF
+  self.dmc_dma(self.pc, false)
   self.bus.read(self.pc) |> ignore
   self.cycles += 1
   if ((target ^ self.pc) & 0xFF00) != 0 {

@@ -104,6 +104,7 @@
     <button id="demo">Run demo</button>
     <button id="reset" disabled>Reset</button>
     <button id="pause" disabled>Pause</button>
+    <button id="mute">Mute</button>
     <span id="fps"></span>
   </div>
   <p id="status">Loading emulator…</p>
@@ -116,7 +117,7 @@
       <tr><td><kbd>Enter</kbd></td><td>Start</td></tr>
       <tr><td><kbd>Shift</kbd></td><td>Select</td></tr>
     </table>
-    <p class="note">Supports mappers 0 (NROM), 1 (MMC1), 2 (UxROM) and 3 (CNROM). No sound.
+    <p class="note">Supports mappers 0 (NROM), 1 (MMC1), 2 (UxROM) and 3 (CNROM), with sound.
       ROM files stay in your browser. Only load ROMs you have the right to use.</p>
   </section>
 </main>
@@ -132,7 +133,51 @@
   const fpsLabel = document.getElementById("fps");
   const resetButton = document.getElementById("reset");
   const pauseButton = document.getElementById("pause");
+  const muteButton = document.getElementById("mute");
   const nes = globalThis.moonNes;
+
+  // --- Audio ---
+  // The emulator produces samples at the AudioContext's rate; the worklet
+  // plays them from a small buffer. Instead of dropping or repeating
+  // frames, the page keeps that buffer at about 50 ms by asking the
+  // emulator for up to 0.5% more or fewer samples (dynamic rate control),
+  // so video stays at a steady 60 fps and the pitch change is inaudible.
+  let audio = null;
+  let audioNode = null;
+  let gain = null;
+  let audioFill = 0;
+  let muted = false;
+  const TARGET_FILL_S = 0.05;
+  const MAX_RATE_ADJUST = 0.005;
+
+  // Browsers only allow audio after a user gesture, so this runs from the
+  // click that loads a ROM or starts the demo.
+  async function startAudio() {
+    if (audio || !window.AudioContext) return;
+    try {
+      audio = new AudioContext();
+      await audio.audioWorklet.addModule("audio-worklet.js");
+      audioNode = new AudioWorkletNode(audio, "moon-nes-audio");
+      audioNode.port.onmessage = (e) => { audioFill = e.data; };
+      gain = audio.createGain();
+      gain.gain.value = muted ? 0 : 1;
+      audioNode.connect(gain).connect(audio.destination);
+      nes.setSampleRate(audio.sampleRate);
+    } catch (err) {
+      audio = null;
+      console.warn("audio disabled:", err);
+    }
+  }
+
+  function pumpAudio() {
+    if (!audioNode) return;
+    const samples = nes.takeAudio();
+    if (samples.length > 0) audioNode.port.postMessage(Float32Array.from(samples));
+    const target = audio.sampleRate * TARGET_FILL_S;
+    const error = (target - audioFill) / target;
+    const adjust = Math.max(-MAX_RATE_ADJUST, Math.min(MAX_RATE_ADJUST, error * MAX_RATE_ADJUST));
+    nes.setSampleRate(audio.sampleRate * (1 + adjust));
+  }
 
   // NTSC NES frame rate.
   const FRAME_MS = 1000 / 60.0988;
@@ -174,6 +219,7 @@
     let ran = 0;
     while (!paused && backlog >= FRAME_MS) {
       nes.frame(image.data);
+      pumpAudio();
       backlog -= FRAME_MS;
       ran++;
     }
@@ -188,6 +234,7 @@
   }
 
   async function loadFile(file) {
+    await startAudio();
     const bytes = new Uint8Array(await file.arrayBuffer());
     started(nes.load(bytes));
     if (!status.classList.contains("error")) setStatus(`${file.name}: ${nes.describe()}`);
@@ -197,7 +244,8 @@
     if (e.target.files[0]) loadFile(e.target.files[0]);
     e.target.value = "";
   });
-  document.getElementById("demo").addEventListener("click", () => {
+  document.getElementById("demo").addEventListener("click", async () => {
+    await startAudio();
     started(nes.demo());
     if (!status.classList.contains("error")) setStatus("Built-in demo: " + nes.describe());
   });
@@ -205,6 +253,12 @@
   pauseButton.addEventListener("click", () => {
     paused = !paused;
     pauseButton.textContent = paused ? "Resume" : "Pause";
+    if (audio) paused ? audio.suspend() : audio.resume();
+  });
+  muteButton.addEventListener("click", () => {
+    muted = !muted;
+    muteButton.textContent = muted ? "Unmute" : "Mute";
+    if (gain) gain.gain.value = muted ? 0 : 1;
   });
 
   const screen = document.getElementById("screen");
