@@ -67,3 +67,42 @@ test "frame hash: instr_test text console" {
     inspect(h, content="4095487394")
   }
 }
+
+///|
+/// The homebrew games bundled with the web page: title screen, Start, then
+/// two seconds of play.
+fn play_hash(path : String) -> String raise {
+  guard load(path) is Some(nes) else { return "skipped" }
+  for _ in 0..<120 {
+    nes.run_frame()
+  }
+  nes.set_buttons(0, @nes.BUTTON_START)
+  for _ in 0..<10 {
+    nes.run_frame()
+  }
+  nes.set_buttons(0, 0)
+  for _ in 0..<120 {
+    nes.run_frame()
+  }
+  nes.frame_hash().to_string()
+}
+
+///|
+test "frame hash: bundled Snake" {
+  inspect(
+    play_hash("../web/roms/openNES-Snake-1.0.9.nes"),
+    content=(
+      #|606753570
+    ),
+  )
+}
+
+///|
+test "frame hash: bundled Pong" {
+  inspect(
+    play_hash("../web/roms/openNES-Pong-1.0.1.nes"),
+    content=(
+      #|3312340354
+    ),
+  )
+}
