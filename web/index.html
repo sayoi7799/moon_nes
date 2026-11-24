@@ -56,6 +56,21 @@
     pointer-events: none;
   }
   .drop-hint[hidden] { display: none; }
+  .sound-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    transform: translateX(-50%);
+    background: rgba(20, 22, 26, 0.85);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .sound-hint[hidden] { display: none; }
   .screen.dragging { outline: 2px dashed var(--accent); outline-offset: -8px; }
   .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px; align-items: center; }
   button, label.button {
@@ -96,7 +111,8 @@
 
   <div class="screen" id="screen">
     <canvas id="canvas" width="256" height="240"></canvas>
-    <div class="drop-hint" id="hint">Open a .nes file, drop one here,<br>or run the built-in demo.</div>
+    <div class="drop-hint" id="hint" hidden>Open a .nes file, drop one here,<br>or run the built-in demo.</div>
+    <div class="sound-hint" id="sound-hint" hidden>Click or press any key to turn on sound</div>
   </div>
 
   <div class="controls">
@@ -152,8 +168,11 @@
 
   // Browsers only allow audio after a user gesture, so this runs from the
   // click that loads a ROM or starts the demo.
+  const soundHint = document.getElementById("sound-hint");
+
   async function startAudio() {
     if (audio || !window.AudioContext) return;
+    soundHint.hidden = true;
     try {
       audio = new AudioContext();
       await audio.audioWorklet.addModule("audio-worklet.js");
@@ -278,7 +297,14 @@
     if (nes.key(e.code, false)) e.preventDefault();
   });
 
-  setStatus("Ready. Open a ROM or run the demo.");
+  // Start with the built-in demo, so the page shows something at once.
+  // Sound needs a user gesture; the first click or key press anywhere
+  // turns it on.
+  started(nes.demo());
+  if (!status.classList.contains("error")) setStatus("Built-in demo: " + nes.describe());
+  if (window.AudioContext) soundHint.hidden = false;
+  window.addEventListener("pointerdown", startAudio, { once: true });
+  window.addEventListener("keydown", startAudio, { once: true });
 </script>
 </body>
 </html>
