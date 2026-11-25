@@ -8,7 +8,19 @@
 let console : Ref[@nes.Nes?] = { val: None, }
 
 ///|
+/// Buttons held on the keyboard and on gamepads, kept apart so that
+/// releasing one does not release the other.
 let held_buttons : Ref[Int32] = { val: 0, }
+
+///|
+let pad_buttons : Ref[Int32] = { val: 0, }
+
+///|
+fn update_buttons() -> Unit {
+  if console.val is Some(nes) {
+    nes.set_buttons(0, held_buttons.val | pad_buttons.val)
+  }
+}
 
 ///|
 /// Audio output rate chosen by the page; 0 until sound is enabled, so no
@@ -40,9 +52,9 @@ fn button_for_key(code : String) -> Int32 {
 fn load(data : Bytes) -> String {
   try {
     let nes = @nes.Nes::load_rom(data)
-    nes.set_buttons(0, held_buttons.val)
     nes.set_sample_rate(sample_rate.val)
     console.val = Some(nes)
+    update_buttons()
     ""
   } catch {
     e => e.message()
@@ -80,10 +92,18 @@ fn key(code : String, down : Bool) -> Bool {
   } else {
     held_buttons.val & b.lnot()
   }
-  if console.val is Some(nes) {
-    nes.set_buttons(0, held_buttons.val)
-  }
+  update_buttons()
   true
+}
+
+///|
+/// Buttons held on connected gamepads, as a mask of BUTTON_* constants.
+/// The page reads the Gamepad API every frame and maps the buttons.
+fn pad(buttons : Int32) -> Unit {
+  if buttons != pad_buttons.val {
+    pad_buttons.val = buttons
+    update_buttons()
+  }
 }
 
 ///|
@@ -121,10 +141,11 @@ extern "js" fn register(
   reset : () -> Unit,
   set_rate : (Double) -> Unit,
   take_audio : () -> FixedArray[Double],
+  pad : (Int32) -> Unit,
 ) -> Unit =
-  #|(load, demo, describe, frame, key, reset, setSampleRate, takeAudio) => {
+  #|(load, demo, describe, frame, key, reset, setSampleRate, takeAudio, pad) => {
   #|  globalThis.moonNes = {
-  #|    load, demo, describe, frame, key, reset, setSampleRate, takeAudio,
+  #|    load, demo, describe, frame, key, reset, setSampleRate, takeAudio, pad,
   #|  };
   #|  globalThis.dispatchEvent(new Event("moon-nes-ready"));
   #|}
@@ -140,5 +161,6 @@ fn main {
     reset,
     set_rate,
     take_audio,
+    pad,
   )
 }

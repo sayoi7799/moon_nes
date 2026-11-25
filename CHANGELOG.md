@@ -25,6 +25,11 @@
 - PPU 的 8 个精灵槽在第 257–320 点按实机时刻取图案，空槽读 tile $FF，预渲染行也取。画面不变。
 - 测试：blargg 的 `mmc3_test_2`、`mmc3_test`、`mmc3_irq_tests`（18 个，通过 15 个；另外 3 个测的是 MMC3A/MMC6，改成子映射器 4 后通过）；Holy Mapperel 的 4 个 MMC3 ROM（zlib 许可，提交进仓库，全部 0000）；MMC3 的帧哈希。
 - 屏幕判定也接受大写的 PASSED/FAILED（2005 年的测试）。
+- 在线版本：`.github/workflows/pages.yml` 在每次推送到 `main` 时把 `web/` 发布到 GitHub Pages，网址 <https://sayoi7799.github.io/moon_nes/>。
+- 网页打开就运行内置演示，并提示点击或按键开启声音；选择框可以切换到内置的 Snake 和 Pong（Sebastian Dine，zlib 许可，原版 ROM 和许可证放在 `web/roms/`）。
+- 网页支持手柄（Gamepad API，标准布局），键盘仍然可用，两者可以同时使用。
+- `src/png`：最小的 PNG 编码器（固定 Huffman 的 deflate，只匹配前一个像素和上一行）；`src/cmd/snapshot` 把 ROM 运行若干帧后的画面存成 PNG。README 顶部的截图由它生成。
+- 帧哈希测试新增内置的 Snake 和 Pong。
 
 ### 修复
 

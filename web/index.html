@@ -56,6 +56,21 @@
     pointer-events: none;
   }
   .drop-hint[hidden] { display: none; }
+  .sound-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    transform: translateX(-50%);
+    background: rgba(20, 22, 26, 0.85);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .sound-hint[hidden] { display: none; }
   .screen.dragging { outline: 2px dashed var(--accent); outline-offset: -8px; }
   .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px; align-items: center; }
   button, label.button {
@@ -71,6 +86,15 @@
   button:disabled { opacity: 0.5; cursor: default; border-color: var(--line); }
   label.button.primary { background: var(--accent); color: #1a1a1a; border-color: var(--accent); }
   input[type=file] { display: none; }
+  select {
+    font: inherit;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 10px;
+  }
+  .note a { color: var(--accent); }
   #fps { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
   #status { color: var(--muted); min-height: 1.5em; margin: 0 0 16px; }
   #status.error { color: var(--error); }
@@ -96,12 +120,17 @@
 
   <div class="screen" id="screen">
     <canvas id="canvas" width="256" height="240"></canvas>
-    <div class="drop-hint" id="hint">Open a .nes file, drop one here,<br>or run the built-in demo.</div>
+    <div class="drop-hint" id="hint" hidden>Open a .nes file, drop one here,<br>or pick a built-in game.</div>
+    <div class="sound-hint" id="sound-hint" hidden>Click or press any key to turn on sound</div>
   </div>
 
   <div class="controls">
     <label class="button primary">Open ROM…<input type="file" id="file" accept=".nes"></label>
-    <button id="demo">Run demo</button>
+    <select id="game" aria-label="Built-in games">
+      <option value="">Built-in demo</option>
+      <option value="roms/openNES-Snake-1.0.9.nes">Snake</option>
+      <option value="roms/openNES-Pong-1.0.1.nes">Pong</option>
+    </select>
     <button id="reset" disabled>Reset</button>
     <button id="pause" disabled>Pause</button>
     <button id="mute">Mute</button>
@@ -117,8 +146,13 @@
       <tr><td><kbd>Enter</kbd></td><td>Start</td></tr>
       <tr><td><kbd>Shift</kbd></td><td>Select</td></tr>
     </table>
+    <p class="note">Gamepads work too: D-pad or left stick, the right face button is A, the bottom one is B, plus Start and Select/Back.</p>
     <p class="note">Supports mappers 0 (NROM), 1 (MMC1), 2 (UxROM), 3 (CNROM) and 4 (MMC3), with sound.
       ROM files stay in your browser. Only load ROMs you have the right to use.</p>
+    <p class="note">Snake and Pong are homebrew games by Sebastian Dine
+      (<a href="https://github.com/sebastiandine/openNES-Snake">openNES-Snake</a>,
+      <a href="https://github.com/sebastiandine/openNES-Pong">openNES-Pong</a>),
+      under the zlib license; see <a href="roms/README.md">roms/</a>.</p>
   </section>
 </main>
 
@@ -152,8 +186,11 @@
 
   // Browsers only allow audio after a user gesture, so this runs from the
   // click that loads a ROM or starts the demo.
+  const soundHint = document.getElementById("sound-hint");
+
   async function startAudio() {
     if (audio || !window.AudioContext) return;
+    soundHint.hidden = true;
     try {
       audio = new AudioContext();
       await audio.audioWorklet.addModule("audio-worklet.js");
@@ -168,6 +205,44 @@
       console.warn("audio disabled:", err);
     }
   }
+
+  // --- Gamepads ---
+  // Standard mapping (https://w3c.github.io/gamepad/#remapping): the right
+  // face button (1) is A and the bottom one (0) is B, matching where A and B
+  // sit on an NES pad; 2 and 3 double them. Back/Select = 8, Start = 9, the
+  // D-pad is 12-15 and the left stick works too.
+  const BUTTON = { A: 0x01, B: 0x02, SELECT: 0x04, START: 0x08, UP: 0x10, DOWN: 0x20, LEFT: 0x40, RIGHT: 0x80 };
+  const PAD_MAP = [
+    [1, BUTTON.A], [3, BUTTON.A], [0, BUTTON.B], [2, BUTTON.B],
+    [8, BUTTON.SELECT], [9, BUTTON.START],
+    [12, BUTTON.UP], [13, BUTTON.DOWN], [14, BUTTON.LEFT], [15, BUTTON.RIGHT],
+  ];
+  const STICK_DEADZONE = 0.5;
+
+  function pollGamepads() {
+    if (!navigator.getGamepads) return;
+    let buttons = 0;
+    for (const gp of navigator.getGamepads()) {
+      if (!gp || !gp.connected) continue;
+      for (const [index, bit] of PAD_MAP) {
+        if (gp.buttons[index] && gp.buttons[index].pressed) buttons |= bit;
+      }
+      const [x = 0, y = 0] = gp.axes;
+      if (x < -STICK_DEADZONE) buttons |= BUTTON.LEFT;
+      if (x > STICK_DEADZONE) buttons |= BUTTON.RIGHT;
+      if (y < -STICK_DEADZONE) buttons |= BUTTON.UP;
+      if (y > STICK_DEADZONE) buttons |= BUTTON.DOWN;
+    }
+    nes.pad(buttons);
+  }
+
+  window.addEventListener("gamepadconnected", (e) => {
+    // Not a user gesture, so sound still waits for a click or key press.
+    setStatus(`Gamepad connected: ${e.gamepad.id}`);
+  });
+  window.addEventListener("gamepaddisconnected", (e) => {
+    setStatus(`Gamepad disconnected: ${e.gamepad.id}`);
+  });
 
   function pumpAudio() {
     if (!audioNode) return;
@@ -217,6 +292,7 @@
     backlog = Math.min(backlog + (now - last), FRAME_MS * 4);
     last = now;
     let ran = 0;
+    if (!paused) pollGamepads();
     while (!paused && backlog >= FRAME_MS) {
       nes.frame(image.data);
       pumpAudio();
@@ -244,11 +320,27 @@
     if (e.target.files[0]) loadFile(e.target.files[0]);
     e.target.value = "";
   });
-  document.getElementById("demo").addEventListener("click", async () => {
+  // Built-in games: the demo is generated by the emulator itself; Snake and
+  // Pong are zlib-licensed homebrew ROMs shipped in roms/.
+  const gameSelect = document.getElementById("game");
+  async function playGame() {
     await startAudio();
-    started(nes.demo());
-    if (!status.classList.contains("error")) setStatus("Built-in demo: " + nes.describe());
-  });
+    const option = gameSelect.selectedOptions[0];
+    if (!option.value) {
+      started(nes.demo());
+      if (!status.classList.contains("error")) setStatus("Built-in demo: " + nes.describe());
+      return;
+    }
+    try {
+      const response = await fetch(option.value);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      started(nes.load(new Uint8Array(await response.arrayBuffer())));
+      if (!status.classList.contains("error")) setStatus(`${option.textContent}: ${nes.describe()}`);
+    } catch (err) {
+      setStatus(`Cannot load ${option.textContent}: ${err.message}`, true);
+    }
+  }
+  gameSelect.addEventListener("change", playGame);
   resetButton.addEventListener("click", () => nes.reset());
   pauseButton.addEventListener("click", () => {
     paused = !paused;
@@ -278,7 +370,14 @@
     if (nes.key(e.code, false)) e.preventDefault();
   });
 
-  setStatus("Ready. Open a ROM or run the demo.");
+  // Start with the built-in demo, so the page shows something at once.
+  // Sound needs a user gesture; the first click or key press anywhere
+  // turns it on.
+  started(nes.demo());
+  if (!status.classList.contains("error")) setStatus("Built-in demo: " + nes.describe());
+  if (window.AudioContext) soundHint.hidden = false;
+  window.addEventListener("pointerdown", startAudio, { once: true });
+  window.addEventListener("keydown", startAudio, { once: true });
 </script>
 </body>
 </html>
