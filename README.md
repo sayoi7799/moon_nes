@@ -24,13 +24,24 @@ NES 的硬件行为有完整的公开文档（[NESdev Wiki](https://www.nesdev.o
 | DMC DMA | 取样本字节时让 CPU 停 3–4 个周期（halt、dummy、可选的对齐、get），在 OAM DMA 中只多占 2 个周期；停顿期间重复 CPU 原本的读，因此 `$2007` 会被多读，而连续读 `$4016/$4017` 只移一位 |
 | 声音输出 | 非线性混音（NESdev Wiki 的精确公式，预先算成表）；每个 CPU 周期的输出按区间平均降到输出采样率（默认 48 kHz），再经过 90 Hz 高通和 14 kHz 低通；只用加减乘除，三个后端的采样逐位一致 |
 | 其他 | 标准手柄（`$4016/$4017`）、OAM DMA（513/514 周期） |
-| API | `Nes::load_rom`、`run_frame`、`frame_buffer`（256×240）、`write_rgba`、`set_buttons`、`reset`、`frame_hash`、`set_sample_rate`、`take_samples` |
+| API | `Nes::load_rom`、`run_frame`、`step`、`frame_buffer`（256×240）、`write_rgba`、`set_buttons`、`reset`、`frame_hash`、`screen_text`、`set_sample_rate`、`samples_available`、`take_samples`；CPU 包可以单独使用，通过 `CpuBus` trait 接任意总线 |
+| 浏览器前端 | canvas 显示、键盘和手柄（Gamepad API）、Web Audio 播放（AudioWorklet + 动态速率控制）、打开即运行内置演示、内置 Snake 和 Pong、载入本地 ROM；在线版本由 GitHub Pages 自动发布 |
+| 命令行工具 | `nestest`（与 nestest.log 逐行对照）、`testroms`（输出测试 ROM 结果表）、`bench`（测速）、`screen`（打印屏幕文字和帧哈希）、`snapshot`（把画面存成 PNG） |
 
 不支持：其他映射器（包括 MMC6 的 PRG RAM 和 MMC3 的变体板子 TxSROM/TQROM）、存档和即时存档、32 KiB WRAM 分页的 SXROM/SOROM、PAL 机型、扩展音源。三角波周期小于 2 时会产生超声波，这里让它停住，和多数模拟器一样。
 
 ## 测试结果
 
-`moon test` 在 js、wasm-gc、native 三个后端都通过（98 个测试）。下面这张表由 `moon run src/cmd/testroms` 生成，**121 个 ROM 中 113 个通过**。
+`moon test` 在 js、wasm-gc、native 三个后端都通过（98 个测试）。下面的结果由 `moon run src/cmd/testroms` 生成，**121 个 ROM 中 113 个通过**，另外 nestest 的 8991 行全部一致：
+
+| 部分 | 通过 / 总数 | 没通过的 |
+|---|---|---|
+| CPU | 28 / 28 | 无 |
+| PPU | 32 / 33 | 2005 年的 `vbl_clear_time` |
+| APU | 26 / 30 | 2005 年 APU 测试 09–11；`double_2007_read`（PPU 的连续读，与 DMC 无关） |
+| 映射器 | 27 / 30 | 测 MMC3A、MMC6 这两种芯片版本的 3 个测试（改成 NES 2.0 子映射器 4 后通过） |
+
+每个没通过的 ROM 的原因写在下面各节和 `src/nes/rom_suite_test.mbt` 的「已知未通过」清单里。
 
 ### CPU
 

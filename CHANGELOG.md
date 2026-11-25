@@ -18,7 +18,7 @@
 - 上电和按复位键时 APU 的状态：写 `$00` 到 `$4015`，重写最后一次的 `$4017`。
 - 演示 ROM 加上四声道背景音乐，按住 A 播放 DMC 采样；画面不变。
 - 浏览器前端用 Web Audio（AudioWorklet）播放声音：动态速率控制把缓冲保持在约 50 ms，另有静音按钮。
-- 测试 ROM 套件新增 APU 区，共 30 个 ROM（`apu_test`、`apu_reset`、`blargg_apu_2005.07.30`、`dmc_dma_during_read4`），通过 27 个。新增判定方式 `ScreenCrc` 和 `ScreenCode`。
+- 测试 ROM 套件新增 APU 区，共 30 个 ROM（`apu_test`、`apu_reset`、`blargg_apu_2005.07.30`、`dmc_dma_during_read4`），通过 26 个。新增判定方式 `ScreenCrc` 和 `ScreenCode`。
 - 声音回归测试：演示 ROM 300 帧采样的哈希。
 - MMC3（mapper 4）：PRG/CHR bank 切换、A12 反转、H/V 镜像（四屏幕卡带除外）、`$A001` 的 PRG RAM 开关和写保护、按 PPU A12 上升沿计数的扫描线 IRQ（带滤波）。NES 2.0 子映射器 4 使用 MMC3A 的 IRQ 规则。
 - `Mapper` trait 新增两个带默认实现的方法：`ppu_bus`（PPU 地址总线）和 `irq_line`；总线把映射器的 IRQ 并入 CPU 的 IRQ。
